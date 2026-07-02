@@ -1,0 +1,23 @@
+# Python virtual environments and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local configuration and secrets
+.streamlit/secrets.toml
+.env
+.env.*
+
+# Generated run outputs
+outputs/run_*/
+outputs/test_mode_solver_v2/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Logs
+*.log
