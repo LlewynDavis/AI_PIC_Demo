@@ -17,14 +17,16 @@ from core.run_manager import (
     write_success_log,
 )
 from core.spec_parser import parse_design_text
+from core.v23_report_appendix import insert_v23_wavelength_section
 from core.validation import validate_design_spec, validation_result_to_text
 from core.v2_report_appendix import insert_v2_mode_section
+from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V2"
+DEMO_VERSION = "V2.5"
 DEMO_DESCRIPTION = (
-    "模式求解版：近似 TE0 模式场、neff 宽度扫描、模式结果接入 MMI 优化流程"
+    "半真实有限差分模式求解版：使用二维标量 Helmholtz 有限差分本征模求解 neff"
 )
 
 
@@ -105,7 +107,7 @@ def main() -> None:
             output_dir=run_dir,
             width_min_um=0.3,
             width_max_um=0.8,
-            num_width_points=40,
+            num_width_points=21,
         )
 
         estimated_neff = mode_result["neff_used_for_mmi"]
@@ -117,6 +119,11 @@ def main() -> None:
         write_run_log(
             run_dir,
             f"Mode result path: {mode_result['mode_result_path']}",
+        )
+        write_run_log(
+            run_dir,
+            "Index profile path: "
+            f"{mode_result['index_profile_result']['index_profile_path']}",
         )
         write_run_log(
             run_dir,
@@ -153,6 +160,19 @@ def main() -> None:
                 "use_estimated_neff": use_estimated_neff,
                 "mode_solver_type": mode_result["mode_profile_result"][
                     "mode_solver_type"
+                ],
+                "mode_solver_version": mode_result["mode_solver_version"],
+                "beta": mode_result["mode_profile_result"]["beta"],
+                "grid_size_x": mode_result["mode_profile_result"][
+                    "grid_size_x"
+                ],
+                "grid_size_y": mode_result["mode_profile_result"][
+                    "grid_size_y"
+                ],
+                "dx_um": mode_result["mode_profile_result"]["dx_um"],
+                "dy_um": mode_result["mode_profile_result"]["dy_um"],
+                "index_profile_path": mode_result["index_profile_result"][
+                    "index_profile_path"
                 ],
                 "mode_profile_path": mode_result["mode_profile_result"][
                     "mode_profile_path"
@@ -192,6 +212,28 @@ def main() -> None:
         best_width_um = optimization_result["best_width_um"]
         best_length_um = optimization_result["best_length_um"]
 
+        wavelength_sweep_result = run_wavelength_sweep(
+            design_spec=design_spec_dict,
+            material_params=material_params,
+            best_width_um=best_width_um,
+            best_length_um=best_length_um,
+            output_dir=run_dir,
+            wavelength_min_um=1.50,
+            wavelength_max_um=1.60,
+            num_points=21,
+        )
+        write_run_log(run_dir, "V2.5 FD-neff wavelength sweep finished.")
+        write_run_log(
+            run_dir,
+            "Wavelength sweep result path: "
+            f"{wavelength_sweep_result['wavelength_sweep_result_path']}",
+        )
+        write_run_log(
+            run_dir,
+            "Max abs imbalance in wavelength sweep: "
+            f"{wavelength_sweep_result['max_abs_imbalance_db']:.4f} dB",
+        )
+
         # 4. 生成 GDS 和版图预览图
         gds_path = generate_gds(
             spec=design_spec_dict,
@@ -225,6 +267,12 @@ def main() -> None:
         )
         write_run_log(run_dir, "V2 mode solver report section inserted.")
 
+        insert_v23_wavelength_section(
+            report_path=report_path,
+            wavelength_sweep_result=wavelength_sweep_result,
+        )
+        write_run_log(run_dir, "V2.5 wavelength sweep report section inserted.")
+
         zip_path = create_result_package(output_dir=run_dir)
         write_run_log(run_dir, f"Result package generated: {zip_path}")
 
@@ -245,6 +293,10 @@ def main() -> None:
         print("=" * 60)
         print(f"Run directory:       {run_dir}")
         print(f"Estimated neff:      {estimated_neff:.4f}")
+        print(
+            "Index profile:       "
+            f"{mode_result['index_profile_result']['index_profile_path']}"
+        )
         print(
             "Mode profile:        "
             f"{mode_result['mode_profile_result']['mode_profile_path']}"

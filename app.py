@@ -18,15 +18,17 @@ from core.run_manager import (
     write_success_log,
 )
 from core.spec_parser import parse_design_text, save_design_spec
+from core.v23_report_appendix import insert_v23_wavelength_section
 from core.v2_report_appendix import insert_v2_mode_section
 from core.v2_web_utils import display_v2_result_panel, find_latest_run_dir
 from core.validation import validate_design_spec, validation_result_to_text
+from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V2.1"
+DEMO_VERSION = "V2.5"
 DEMO_DESCRIPTION = (
-    "网页展示增强版：展示模式场、neff 宽度扫描、MMI 优化、GDS 与完整结果包"
+    "半真实有限差分模式求解版：展示折射率截面、有限差分模式场、neff 扫描和 MMI 优化结果"
 )
 
 
@@ -36,7 +38,7 @@ def save_json(data: dict, path: Path) -> None:
 
 
 st.set_page_config(
-    page_title="AI 光子芯片设计平台 Demo V2.1",
+    page_title="AI 光子芯片设计平台 Demo V2.5",
     layout="wide",
 )
 
@@ -45,7 +47,7 @@ st.caption(f"{DEMO_VERSION} | {DEMO_DESCRIPTION}")
 st.subheader("1×2 MMI 光功率分束器自动设计示例")
 st.markdown(
     """
-V2.1 在 V2 模式求解主流程基础上，完整展示近似 TE0 模式场、neff 宽度扫描、
+V2.5 使用二维标量 Helmholtz 有限差分本征模求解 neff，并保留波长扫描与带宽趋势分析，
 MMI 二维优化、版图与工程交付文件。当前仍为轻量近似模型，不是真实 FDE/FEM/EME 电磁仿真。
 """
 )
@@ -187,14 +189,14 @@ with st.sidebar:
         value=st.session_state.get("num_width_scan_points", 80),
         step=10,
     )
-    run_button = st.button("运行 V2.1 设计", type="primary")
+    run_button = st.button("运行 V2.5 设计", type="primary")
 
 
 if run_button:
     st.session_state.pop("last_run_dir", None)
     run_dir = create_run_directory("outputs")
     init_run_log(run_dir, DEMO_VERSION, DEMO_DESCRIPTION)
-    write_run_log(run_dir, "Streamlit V2.1 design run started.")
+    write_run_log(run_dir, "Streamlit V2.5 design run started.")
 
     try:
         spec = {
@@ -233,7 +235,7 @@ if run_button:
                 for warning in validation_result.warnings:
                     st.warning(warning)
 
-        with st.spinner("正在运行 V2.1 模式分析与 MMI 优化流程..."):
+        with st.spinner("正在运行 V2.5 有限差分模式分析、MMI 优化与波长扫描..."):
             material_params = get_platform_materials(spec["platform"])
             mode_result = run_mode_solver_analysis(
                 core_index=material_params["core_index"],
@@ -244,16 +246,16 @@ if run_button:
                 output_dir=run_dir,
                 width_min_um=0.3,
                 width_max_um=0.8,
-                num_width_points=40,
+                num_width_points=21,
             )
             estimated_neff = mode_result["neff_used_for_mmi"]
             spec["neff"] = estimated_neff
             original_use_estimated_neff = spec["use_estimated_neff"]
             spec["use_estimated_neff"] = False
-            write_run_log(run_dir, "V2.1 mode solver finished.")
+            write_run_log(run_dir, "V2.5 finite-difference mode solver finished.")
             write_run_log(
                 run_dir,
-                f"V2.1 neff used for MMI: {estimated_neff:.4f}",
+                f"V2.5 FD neff used for MMI: {estimated_neff:.4f}",
             )
             write_run_log(
                 run_dir,
@@ -275,6 +277,19 @@ if run_button:
                     "use_estimated_neff": original_use_estimated_neff,
                     "mode_solver_type": mode_result["mode_profile_result"][
                         "mode_solver_type"
+                    ],
+                    "mode_solver_version": mode_result["mode_solver_version"],
+                    "beta": mode_result["mode_profile_result"]["beta"],
+                    "grid_size_x": mode_result["mode_profile_result"][
+                        "grid_size_x"
+                    ],
+                    "grid_size_y": mode_result["mode_profile_result"][
+                        "grid_size_y"
+                    ],
+                    "dx_um": mode_result["mode_profile_result"]["dx_um"],
+                    "dy_um": mode_result["mode_profile_result"]["dy_um"],
+                    "index_profile_path": mode_result["index_profile_result"][
+                        "index_profile_path"
                     ],
                     "mode_profile_path": mode_result["mode_profile_result"][
                         "mode_profile_path"
@@ -298,6 +313,21 @@ if run_button:
             save_json(result, run_dir / "optimization_result.json")
             write_run_log(run_dir, "Width-length optimization finished.")
 
+            wavelength_sweep_result = run_wavelength_sweep(
+                design_spec=spec,
+                material_params=material_params,
+                best_width_um=result["best_width_um"],
+                best_length_um=result["best_length_um"],
+                output_dir=run_dir,
+                wavelength_min_um=1.50,
+                wavelength_max_um=1.60,
+                num_points=21,
+            )
+            write_run_log(
+                run_dir,
+                "V2.5 FD-neff wavelength sweep finished in Streamlit.",
+            )
+
             gds_path = generate_gds(spec=spec, result=result, output_dir=run_dir)
             layout_preview_path = generate_layout_preview(
                 spec=spec,
@@ -318,7 +348,16 @@ if run_button:
                 version=DEMO_VERSION,
             )
             insert_v2_mode_section(report_path=report_path, mode_result=mode_result)
-            write_run_log(run_dir, "V2.1 mode solver report section inserted.")
+            write_run_log(run_dir, "V2.5 FD mode solver report section inserted.")
+
+            insert_v23_wavelength_section(
+                report_path=report_path,
+                wavelength_sweep_result=wavelength_sweep_result,
+            )
+            write_run_log(
+                run_dir,
+                "V2.5 wavelength sweep report section inserted in Streamlit.",
+            )
 
             zip_path = create_result_package(output_dir=run_dir)
             append_v15_report_appendix(
@@ -328,12 +367,12 @@ if run_button:
                 version=DEMO_VERSION,
                 description=DEMO_DESCRIPTION,
             )
-            write_run_log(run_dir, "V2.1 engineering appendix added.")
+            write_run_log(run_dir, "V2.5 engineering appendix added.")
             write_success_log(run_dir)
             zip_path = create_result_package(output_dir=run_dir)
             write_run_log(run_dir, f"Final result package generated: {zip_path}")
 
-        st.success("V2.1 设计流程运行完成。")
+        st.success("V2.5 设计流程运行完成。")
         st.session_state["last_run_dir"] = str(run_dir)
 
     except Exception as error:
@@ -345,7 +384,7 @@ if run_button:
 
 
 st.divider()
-st.subheader("查看最近一次 V2.1 运行结果")
+st.subheader("查看最近一次 V2.5 运行结果")
 if st.button("加载最近一次运行结果"):
     latest_run_dir = find_latest_run_dir("outputs")
     if latest_run_dir is None:
@@ -356,14 +395,14 @@ if st.button("加载最近一次运行结果"):
 if "last_run_dir" in st.session_state:
     display_v2_result_panel(st.session_state["last_run_dir"])
 else:
-    st.info("请运行一次 V2.1 设计，或加载最近一次运行结果。")
+    st.info("请运行一次 V2.5 设计，或加载最近一次运行结果。")
 
 st.divider()
 st.markdown(
     """
-### 当前 V2.1 demo 的定位
+### 当前 V2.5 demo 的定位
 
-V2.1 将 V2 模式求解主流程完整同步到网页端，可展示模式场、neff 扫描、MMI 优化、
+V2.5 在网页端展示有限差分模式场、neff 扫描、宽带趋势、MMI 优化、
 版图、结构化 JSON 与全部交付文件。当前模式模块仍是近似模型，后续可替换为严格 FDE/FEM 求解器。
 """
 )

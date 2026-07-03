@@ -5,9 +5,13 @@ REQUIRED_FILES = [
     "design_spec.json",
     "physical_params.json",
     "mode_result.json",
+    "index_profile.png",
     "mode_profile.png",
     "neff_vs_width.png",
     "optimization_result.json",
+    "wavelength_sweep_result.json",
+    "wavelength_sweep.png",
+    "wavelength_imbalance.png",
     "length_sweep.png",
     "width_length_heatmap.png",
     "layout_preview.png",
@@ -39,7 +43,7 @@ def find_latest_run_dir(outputs_dir: Path) -> Path | None:
 def check_run_dir(run_dir: Path) -> bool:
     """检查指定运行目录中是否包含 V2 所需关键输出文件。"""
     print("=" * 70)
-    print("AI PIC Demo V2.1 输出完整性检查")
+    print("AI PIC Demo V2.5 输出完整性检查")
     print("=" * 70)
     print(f"检查目录：{run_dir}")
     print()

@@ -46,10 +46,14 @@ def generate_report(
     output_files = [
         ("design_spec.json", "保存结构化设计参数"),
         ("physical_params.json", "保存材料参数和 neff 估算结果"),
-        ("mode_result.json", "保存 V2 模式分析结果"),
-        ("mode_profile.png", "近似 TE0 模式场分布"),
+        ("mode_result.json", "保存 V2.5 有限差分模式分析结果"),
+        ("index_profile.png", "SOI 波导折射率截面分布"),
+        ("mode_profile.png", "有限差分标量模式场分布"),
         ("neff_vs_width.png", "neff 随波导宽度变化曲线"),
         ("optimization_result.json", "保存二维优化结果"),
+        ("wavelength_sweep_result.json", "保存 V2.5 有限差分 neff 波长扫描结果"),
+        ("wavelength_sweep.png", "输出功率随波长变化图"),
+        ("wavelength_imbalance.png", "分光不均衡随波长变化图"),
         ("length_sweep.png", "最优宽度下的 MMI 长度扫描图"),
         ("width_length_heatmap.png", "MMI 宽度—长度二维优化热力图"),
         ("layout_preview.png", "1×2 MMI 简化版图预览"),
@@ -63,7 +67,14 @@ def generate_report(
         for filename, description in output_files
     )
 
-    version_positioning = "模式求解版" if version.startswith("V2") else "工程稳定版"
+    if version == "V2.5":
+        version_positioning = "有限差分模式求解版"
+    elif version == "V2.3":
+        version_positioning = "波长扫描增强版"
+    elif version.startswith("V2"):
+        version_positioning = "模式求解版"
+    else:
+        version_positioning = "工程稳定版"
 
     report = f"""# 基于 AI 的 1×2 MMI 光功率分束器自动设计报告（{version}）
 
