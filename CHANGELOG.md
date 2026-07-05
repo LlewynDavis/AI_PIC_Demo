@@ -2,6 +2,68 @@
 
 本文档按照时间倒序记录主要版本变化。历史代码通过 Git tag 和 GitHub Release 保存，主分支不维护完整源码副本。
 
+## V3.1_propagation_calibration — 传播仿真校准与模型对比版
+
+### 版本定位
+
+V3.1 在 V3.0 二维标量 BPM 传播仿真基础上，增加输出窗口敏感性分析、增强传播图和 surrogate/BPM 模型对比，用于提高传播结果的可解释性和工程可信度。
+
+### 新增功能
+
+- 新增输出窗口宽度敏感性分析。
+- 新增 `output_window_sensitivity_result.json`。
+- 新增 `output_window_sensitivity.png`。
+- 新增 `field_propagation_enhanced.png`。
+- 新增 `core/model_comparison.py`。
+- 新增 `model_comparison_result.json`。
+- 新增 `model_comparison.png`。
+- 新增 `core/v31_report_appendix.py`，在报告中追加校准分析。
+- 网页新增 V3.1 展示与下载区。
+- 完整性检查和结果包加入 V3.1 输出。
+
+### 修复内容
+
+- 为 V3.0 兼容字段 `insertion_loss_db` 增加语义更准确的 `window_based_insertion_loss_db`。
+- 通过多窗口积分解释 V3.0 插损偏大的窗口依赖来源。
+- 明确 surrogate 与 BPM 结果属于不同物理层级，避免将趋势对比解释为严格数值验证。
+
+### 局限性或备注
+
+- V3.1 不改变 V3.0 的 BPM 基本物理模型。
+- 输出功率仍然是窗口积分估计，不是严格模式重叠积分。
+- `window_based_insertion_loss_db` 不是严格器件插入损耗。
+- 当前版本没有执行严格全矢量 S 参数提取。
+
+## V3.0_scalar_bpm_propagation — MMI 二维标量光场传播仿真版
+
+### 版本定位
+
+V3.0 在 V2.6 工程稳定版本基础上，新增 MMI 内部光场传播可视化和输出端口功率估算，并保留原有 surrogate 优化模型作为前级设计流程。
+
+### 新增功能
+
+- 新增 `core/propagation_solver.py`。
+- 新增二维标量 split-step Fourier BPM 传播仿真。
+- 生成 `field_propagation.png`。
+- 生成 `field_output_profile.png`。
+- 生成 `propagation_result.json`。
+- 网页端展示并下载 V3.0 传播仿真结果。
+- 新增 `core/v30_report_appendix.py`，在报告中追加传播分析。
+- 输出完整性检查和 ZIP 结果包加入 V3.0 文件。
+
+### 修复内容
+
+- 将 MMI 光场传播验证接入命令行和 Streamlit 完整流程。
+- 为传播仿真增加独立异常隔离，BPM 失败时不阻断 V2.6 基线流程。
+- 更新报告中的模式和传播模型边界说明。
+
+### 局限性或备注
+
+- 该传播仿真是二维标量 BPM 近似。
+- 不是严格全矢量 FDTD/FEM/EME。
+- 输出功率由简单端口窗口积分估算。
+- 后续可升级为更严格的传播求解器或接入外部仿真工具。
+
 ## V2.6 — 工程清理与 GitHub 同步准备版
 
 ### 版本定位

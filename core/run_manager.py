@@ -3,7 +3,9 @@ from pathlib import Path
 from typing import Optional
 
 
-def create_run_directory(base_output_dir: str = "outputs") -> Path:
+def create_run_directory(
+    base_output_dir: str | Path = Path("outputs"),
+) -> Path:
     """
     创建带时间戳的运行结果目录。
 

@@ -45,7 +45,15 @@ outputs/*.zip
 !outputs/README.md
 !examples/README.md
 !examples/v2.5/README.md
+!examples/v3.0/README.md
+!examples/v3.1/README.md
 !docs/versions/*.md
+!docs/versions/v3.0.md
+!docs/versions/v3.1.md
+!core/propagation_solver.py
+!core/v30_report_appendix.py
+!core/model_comparison.py
+!core/v31_report_appendix.py
 !README.md
 !CHANGELOG.md
 !VERSION

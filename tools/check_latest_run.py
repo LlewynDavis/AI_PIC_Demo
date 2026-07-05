@@ -12,6 +12,14 @@ REQUIRED_FILES = [
     "wavelength_sweep_result.json",
     "wavelength_sweep.png",
     "wavelength_imbalance.png",
+    "propagation_result.json",
+    "field_propagation.png",
+    "field_output_profile.png",
+    "field_propagation_enhanced.png",
+    "output_window_sensitivity.png",
+    "output_window_sensitivity_result.json",
+    "model_comparison.png",
+    "model_comparison_result.json",
     "length_sweep.png",
     "width_length_heatmap.png",
     "layout_preview.png",
@@ -41,9 +49,9 @@ def find_latest_run_dir(outputs_dir: Path) -> Path | None:
 
 
 def check_run_dir(run_dir: Path) -> bool:
-    """检查指定运行目录中是否包含 V2 所需关键输出文件。"""
+    """检查指定运行目录中是否包含 V3.1 所需关键输出文件。"""
     print("=" * 70)
-    print("AI PIC Demo V2.5 输出完整性检查")
+    print("AI PIC Demo V3.1 输出完整性检查")
     print("=" * 70)
     print(f"检查目录：{run_dir}")
     print()

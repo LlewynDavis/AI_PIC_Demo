@@ -2,7 +2,7 @@
 
 ## 一、项目简介
 
-AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo。项目当前以 SOI 平台 1×2 MMI 光功率分束器为示例，展示从自然语言需求输入、结构化参数解析、模式求解和 MMI 优化，到 GDS 生成、Streamlit 网页展示、中文报告及结果打包的自动化流程。
+AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo。项目当前以 SOI 平台 1×2 MMI 光功率分束器为示例，展示从自然语言需求输入、结构化参数解析、模式求解和 MMI 优化，到二维标量 BPM 传播验证、GDS 生成、Streamlit 网页展示、中文报告及结果打包的自动化流程。
 
 本项目面向教学、原型验证和工程流程展示。计算结果可用于方案预研，但不能直接作为流片签核依据。
 
@@ -11,10 +11,10 @@ AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo�
 当前 `main` 分支对应最新稳定版本：
 
 ```text
-V2.6_engineering_cleanup
+V3.1_propagation_calibration
 ```
 
-V2.6 是在 V2.5 基础上的工程整理、文档封版和 GitHub 同步准备版本，不改变 V2.5 已验证的核心物理算法。
+V3.1 在 V3.0 二维标量 BPM 传播基础上新增输出窗口敏感性、增强传播图和 surrogate/BPM 模型对比，用于提高传播结果的可解释性和工程可信度。现有 surrogate 优化和 V3.0 传播输出继续保留。
 
 ## 三、当前版本主要功能
 
@@ -27,6 +27,15 @@ V2.6 是在 V2.5 基础上的工程整理、文档封版和 GitHub 同步准备�
 - `neff_vs_width` 波导宽度扫描
 - MMI 宽度—长度二维优化
 - 波长扫描与带宽趋势分析
+- MMI 区域二维标量 BPM 光场传播仿真
+- `field_propagation.png` MMI 光场传播图
+- `field_output_profile.png` 输出端横向强度分布
+- `propagation_result.json` 传播仿真结构化结果
+- 基于端口窗口积分估算 `p_out1`、`p_out2`、分光不均衡和插入损耗
+- V3.1 输出窗口宽度敏感性分析
+- V3.1 enhanced propagation plot
+- Surrogate model 与 BPM model 对比
+- Window-based insertion loss 解释与模型可信度校准
 - GDS 版图及版图预览生成
 - Streamlit 网页展示
 - 中文设计报告生成
@@ -128,6 +137,14 @@ streamlit run app.py
 - `wavelength_sweep_result.json`
 - `wavelength_sweep.png`
 - `wavelength_imbalance.png`
+- `propagation_result.json`
+- `field_propagation.png`
+- `field_output_profile.png`
+- `field_propagation_enhanced.png`
+- `output_window_sensitivity.png`
+- `output_window_sensitivity_result.json`
+- `model_comparison.png`
+- `model_comparison_result.json`
 - `length_sweep.png`
 - `width_length_heatmap.png`
 - `layout_preview.png`
@@ -167,15 +184,18 @@ python tools/clean_outputs.py --keep 3 --apply
 
 ## 十一、模型边界与局限性
 
-- 当前 V2.5/V2.6 的模式求解是二维标量有限差分近似。
+- 当前模式求解是二维标量有限差分近似。
+- V3.0 的 MMI 传播仿真是二维标量 BPM 近似。
 - 当前版本不是严格的全矢量 FDE、FEM、EME 或 FDTD 仿真。
 - MMI 响应模型仍是轻量 surrogate model。
-- 尚未实现 MMI 区域的真实光场传播仿真。
+- BPM 输出功率由简化端口窗口积分估算，不等同于严格端口模式重叠或 S 参数。
+- V3.1 的 output power 仍是窗口积分估计。
+- `window_based_insertion_loss_db` 不是严格器件插入损耗。
+- Surrogate 与 BPM 的比较用于趋势分析，不是严格同一物理量的数值对比。
 - 所有优化和带宽趋势结果均应通过更高保真仿真或实验进一步验证。
 
 ## 十二、后续开发计划
 
-- V3.0：MMI 区域二维光场传播仿真
 - V3.5：宽带 S 参数趋势分析
 - V4.0：PDK/DRC 工艺规则检查
 - V5.0：AI Workflow / Agent 化设计流程
