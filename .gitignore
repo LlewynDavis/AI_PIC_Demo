@@ -1,10 +1,16 @@
 # Python virtual environments and caches
 .venv/
+venv/
+env/
 __pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.ipynb_checkpoints/
 
 # Local configuration and secrets
 .streamlit/secrets.toml
@@ -14,6 +20,7 @@ __pycache__/
 # Generated run outputs
 outputs/run_*/
 outputs/test_mode_solver_v2/
+outputs/*
 
 # IDE settings
 .vscode/settings.json
@@ -27,7 +34,18 @@ outputs/test_mode_solver_v2/
 
 # Large generated packages
 outputs/*.zip
+/*.zip
 
 # Local temporary files
 *.tmp
 *.bak
+*_backup.py
+
+# Repository documentation must remain tracked
+!outputs/README.md
+!examples/README.md
+!examples/v2.5/README.md
+!docs/versions/*.md
+!README.md
+!CHANGELOG.md
+!VERSION

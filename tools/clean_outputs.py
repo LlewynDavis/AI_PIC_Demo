@@ -129,9 +129,17 @@ def main() -> None:
     else:
         print("  （无）")
 
+    if not delete_dirs:
+        print(f"\n无需清理：run_* 目录数量未超过保留数量 {args.keep}。")
+        return
+
     if not args.apply:
         print("\n当前为 dry-run，未删除任何目录。")
-        print("确认清单后，使用 --apply 执行删除。")
+        print(
+            "确认清单后，可执行："
+            f'python tools/clean_outputs.py --output-dir "{outputs_dir}" '
+            f"--keep {args.keep} --apply"
+        )
         return
 
     print("\n开始删除：")
