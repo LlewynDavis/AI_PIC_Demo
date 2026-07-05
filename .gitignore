@@ -16,8 +16,18 @@ outputs/run_*/
 outputs/test_mode_solver_v2/
 
 # IDE settings
-.vscode/
+.vscode/settings.json
 .idea/
+
+# Operating system metadata
+.DS_Store
 
 # Logs
 *.log
+
+# Large generated packages
+outputs/*.zip
+
+# Local temporary files
+*.tmp
+*.bak
