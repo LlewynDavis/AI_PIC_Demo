@@ -7,6 +7,7 @@ import streamlit as st
 from core.material_database import get_platform_materials
 from core.mode_solver import run_mode_solver_analysis
 from core.model_comparison import run_model_comparison_analysis
+from core.mode_overlap import run_mode_overlap_analysis
 from core.optimizer import optimize_length
 from core.package_generator import create_result_package
 from core.propagation_solver import run_propagation_analysis
@@ -24,15 +25,23 @@ from core.v23_report_appendix import insert_v23_wavelength_section
 from core.v2_report_appendix import insert_v2_mode_section
 from core.v30_report_appendix import append_v30_propagation_section
 from core.v31_report_appendix import append_v31_calibration_section
+from core.v32_report_appendix import append_v32_mode_overlap_section
 from core.v2_web_utils import display_v2_result_panel, find_latest_run_dir
+from core.ui_theme import (
+    apply_ui_theme,
+    render_app_hero,
+    render_model_boundary,
+    render_sidebar_brand,
+    render_workflow_strip,
+)
 from core.validation import validate_design_spec, validation_result_to_text
 from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V3.1"
+DEMO_VERSION = "V3.2"
 DEMO_DESCRIPTION = (
-    "传播仿真校准与模型对比版：展示窗口敏感性和 surrogate/BPM 趋势对比"
+    "端口模式重叠积分版：展示 Gaussian 端口模式投影与窗口积分对比"
 )
 
 
@@ -42,165 +51,168 @@ def save_json(data: dict, path: Path) -> None:
 
 
 st.set_page_config(
-    page_title="AI 光子芯片设计平台 Demo V3.1",
+    page_title="AI PIC Design Studio · V3.2",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-st.title("AI 光子芯片设计平台 Demo")
-st.caption(f"{DEMO_VERSION} | {DEMO_DESCRIPTION}")
-st.subheader("1×2 MMI 光功率分束器自动设计示例")
-st.markdown(
-    """
-V3.1 在 V3.0 二维标量 BPM 传播基础上增加输出窗口敏感性和 surrogate/BPM 对比，
-用于趋势校准和结果解释。Window-based insertion loss 不是严格器件插入损耗。
-"""
-)
+apply_ui_theme(st)
+render_app_hero(st, DEMO_VERSION, DEMO_DESCRIPTION)
+render_workflow_strip(st)
+render_model_boundary(st)
 
 
 with st.sidebar:
-    st.header("自然语言需求输入")
-    user_text = st.text_area(
-        "请输入设计需求",
-        value="请帮我设计一个 1550 nm、SOI 平台、50:50 分光的 1×2 MMI 分束器。",
-        height=120,
-    )
+    render_sidebar_brand(st, DEMO_VERSION)
 
-    if st.button("解析需求"):
-        parsed_spec = parse_design_text(user_text)
-        st.session_state["parsed_spec"] = parsed_spec
-        st.session_state["wavelength_um"] = parsed_spec["wavelength_um"]
-        st.session_state["neff"] = parsed_spec["neff"]
-        st.session_state["use_estimated_neff"] = parsed_spec[
-            "use_estimated_neff"
-        ]
-        st.session_state["waveguide_width_um"] = parsed_spec[
-            "waveguide_width_um"
-        ]
-        st.session_state["waveguide_height_um"] = parsed_spec[
-            "waveguide_height_um"
-        ]
-        st.session_state["mmi_width_um"] = parsed_spec["mmi_width_um"]
-        st.session_state["length_min_um"] = parsed_spec[
-            "length_scan_range_um"
-        ][0]
-        st.session_state["length_max_um"] = parsed_spec[
-            "length_scan_range_um"
-        ][1]
-        st.session_state["num_scan_points"] = parsed_spec["num_scan_points"]
-        st.session_state["width_min_um"] = parsed_spec[
-            "mmi_width_scan_range_um"
-        ][0]
-        st.session_state["width_max_um"] = parsed_spec[
-            "mmi_width_scan_range_um"
-        ][1]
-        st.session_state["num_width_scan_points"] = parsed_spec[
-            "num_width_scan_points"
-        ]
-        st.success("需求解析完成，参数已填入下方输入框。")
+    with st.expander("01 · 自然语言规格", expanded=True):
+        user_text = st.text_area(
+            "设计需求",
+            value="请帮我设计一个 1550 nm、SOI 平台、50:50 分光的 1×2 MMI 分束器。",
+            height=120,
+            help="输入平台、波长、器件类型和目标分光比。",
+        )
+        if st.button("解析并填充参数", width="stretch"):
+            parsed_spec = parse_design_text(user_text)
+            st.session_state["parsed_spec"] = parsed_spec
+            st.session_state["wavelength_um"] = parsed_spec["wavelength_um"]
+            st.session_state["neff"] = parsed_spec["neff"]
+            st.session_state["use_estimated_neff"] = parsed_spec[
+                "use_estimated_neff"
+            ]
+            st.session_state["waveguide_width_um"] = parsed_spec[
+                "waveguide_width_um"
+            ]
+            st.session_state["waveguide_height_um"] = parsed_spec[
+                "waveguide_height_um"
+            ]
+            st.session_state["mmi_width_um"] = parsed_spec["mmi_width_um"]
+            st.session_state["length_min_um"] = parsed_spec[
+                "length_scan_range_um"
+            ][0]
+            st.session_state["length_max_um"] = parsed_spec[
+                "length_scan_range_um"
+            ][1]
+            st.session_state["num_scan_points"] = parsed_spec[
+                "num_scan_points"
+            ]
+            st.session_state["width_min_um"] = parsed_spec[
+                "mmi_width_scan_range_um"
+            ][0]
+            st.session_state["width_max_um"] = parsed_spec[
+                "mmi_width_scan_range_um"
+            ][1]
+            st.session_state["num_width_scan_points"] = parsed_spec[
+                "num_width_scan_points"
+            ]
+            st.success("解析完成，参数已同步。")
+        if "parsed_spec" in st.session_state:
+            with st.popover("查看结构化规格", width="stretch"):
+                st.json(st.session_state["parsed_spec"])
 
-    if "parsed_spec" in st.session_state:
-        st.markdown("#### 解析后的结构化参数")
-        st.json(st.session_state["parsed_spec"])
+    with st.expander("02 · 光学平台与波导", expanded=True):
+        platform = st.selectbox("光子平台", options=["SOI"], index=0)
+        wavelength_um = st.number_input(
+            "工作波长 / μm",
+            min_value=1.0,
+            max_value=2.0,
+            value=st.session_state.get("wavelength_um", 1.55),
+            step=0.01,
+        )
+        use_estimated_neff = st.checkbox(
+            "使用有限差分模式求解 neff",
+            value=st.session_state.get("use_estimated_neff", True),
+        )
+        neff = st.number_input(
+            "手动 neff",
+            min_value=1.0,
+            max_value=4.0,
+            value=st.session_state.get("neff", 2.8),
+            step=0.1,
+            disabled=use_estimated_neff,
+            help="启用模式求解时，该输入仅作为兼容参数保留。",
+        )
+        waveguide_width_um = st.number_input(
+            "波导宽度 / μm",
+            min_value=0.2,
+            max_value=2.0,
+            value=st.session_state.get("waveguide_width_um", 0.5),
+            step=0.05,
+        )
+        waveguide_height_um = st.number_input(
+            "波导高度 / μm",
+            min_value=0.1,
+            max_value=1.0,
+            value=st.session_state.get("waveguide_height_um", 0.22),
+            step=0.01,
+        )
 
-    st.divider()
-    st.header("物理平台参数")
-    platform = st.selectbox("光子平台", options=["SOI"], index=0)
-    use_estimated_neff = st.checkbox(
-        "使用 V2 模式求解 neff",
-        value=st.session_state.get("use_estimated_neff", True),
-    )
-    wavelength_um = st.number_input(
-        "工作波长 wavelength / μm",
-        min_value=1.0,
-        max_value=2.0,
-        value=st.session_state.get("wavelength_um", 1.55),
-        step=0.01,
-    )
-    neff = st.number_input(
-        "手动 neff",
-        min_value=1.0,
-        max_value=4.0,
-        value=st.session_state.get("neff", 2.8),
-        step=0.1,
-        disabled=use_estimated_neff,
-    )
-    waveguide_width_um = st.number_input(
-        "输入/输出波导宽度 / μm",
-        min_value=0.2,
-        max_value=2.0,
-        value=st.session_state.get("waveguide_width_um", 0.5),
-        step=0.05,
-    )
-    waveguide_height_um = st.number_input(
-        "波导高度 / μm",
-        min_value=0.1,
-        max_value=1.0,
-        value=st.session_state.get("waveguide_height_um", 0.22),
-        step=0.01,
-    )
+    with st.expander("03 · MMI 与优化网格", expanded=False):
+        mmi_width_um = st.number_input(
+            "名义 MMI 宽度 / μm",
+            min_value=1.0,
+            max_value=10.0,
+            value=st.session_state.get("mmi_width_um", 2.5),
+            step=0.1,
+        )
+        st.caption("长度扫描")
+        length_min_um = st.number_input(
+            "最小长度 / μm",
+            min_value=1.0,
+            max_value=100.0,
+            value=st.session_state.get("length_min_um", 3.0),
+            step=0.5,
+        )
+        length_max_um = st.number_input(
+            "最大长度 / μm",
+            min_value=1.0,
+            max_value=100.0,
+            value=st.session_state.get("length_max_um", 20.0),
+            step=0.5,
+        )
+        num_scan_points = st.number_input(
+            "长度采样点数",
+            min_value=20,
+            max_value=1000,
+            value=st.session_state.get("num_scan_points", 200),
+            step=10,
+        )
+        st.caption("宽度扫描")
+        width_min_um = st.number_input(
+            "最小宽度 / μm",
+            min_value=1.0,
+            max_value=10.0,
+            value=st.session_state.get("width_min_um", 1.5),
+            step=0.1,
+        )
+        width_max_um = st.number_input(
+            "最大宽度 / μm",
+            min_value=1.0,
+            max_value=10.0,
+            value=st.session_state.get("width_max_um", 4.0),
+            step=0.1,
+        )
+        num_width_scan_points = st.number_input(
+            "宽度采样点数",
+            min_value=20,
+            max_value=300,
+            value=st.session_state.get("num_width_scan_points", 80),
+            step=10,
+        )
 
-    st.divider()
-    st.header("MMI 初始参数")
-    mmi_width_um = st.number_input(
-        "名义 MMI 区域宽度 / μm",
-        min_value=1.0,
-        max_value=10.0,
-        value=st.session_state.get("mmi_width_um", 2.5),
-        step=0.1,
+    st.caption("运行通常需要数秒，完成后会生成独立时间戳目录。")
+    run_button = st.button(
+        "运行完整设计流程",
+        type="primary",
+        width="stretch",
     )
-
-    st.divider()
-    st.header("二维扫描范围设置")
-    length_min_um = st.number_input(
-        "最小扫描长度 / μm",
-        min_value=1.0,
-        max_value=100.0,
-        value=st.session_state.get("length_min_um", 3.0),
-        step=0.5,
-    )
-    length_max_um = st.number_input(
-        "最大扫描长度 / μm",
-        min_value=1.0,
-        max_value=100.0,
-        value=st.session_state.get("length_max_um", 20.0),
-        step=0.5,
-    )
-    num_scan_points = st.number_input(
-        "长度扫描点数",
-        min_value=20,
-        max_value=1000,
-        value=st.session_state.get("num_scan_points", 200),
-        step=10,
-    )
-    width_min_um = st.number_input(
-        "最小扫描宽度 / μm",
-        min_value=1.0,
-        max_value=10.0,
-        value=st.session_state.get("width_min_um", 1.5),
-        step=0.1,
-    )
-    width_max_um = st.number_input(
-        "最大扫描宽度 / μm",
-        min_value=1.0,
-        max_value=10.0,
-        value=st.session_state.get("width_max_um", 4.0),
-        step=0.1,
-    )
-    num_width_scan_points = st.number_input(
-        "宽度扫描点数",
-        min_value=20,
-        max_value=300,
-        value=st.session_state.get("num_width_scan_points", 80),
-        step=10,
-    )
-    run_button = st.button("运行 V3.1 设计", type="primary")
 
 
 if run_button:
     st.session_state.pop("last_run_dir", None)
     run_dir = create_run_directory(Path("outputs"))
     init_run_log(run_dir, DEMO_VERSION, DEMO_DESCRIPTION)
-    write_run_log(run_dir, "Streamlit V3.1 design run started.")
+    write_run_log(run_dir, "Streamlit V3.2 design run started.")
 
     try:
         spec = {
@@ -239,7 +251,7 @@ if run_button:
                 for warning in validation_result.warnings:
                     st.warning(warning)
 
-        with st.spinner("正在运行 V3.1 模式、优化、BPM 传播与校准分析..."):
+        with st.spinner("正在运行 V3.2 模式、优化、BPM 传播与端口重叠分析..."):
             material_params = get_platform_materials(spec["platform"])
             mode_result = run_mode_solver_analysis(
                 core_index=material_params["core_index"],
@@ -415,6 +427,46 @@ if run_button:
                         "V3.1 模型对比未完成；V3.0 传播和 V2.6 基线结果仍可继续生成。"
                     )
 
+            mode_overlap_result = None
+            if propagation_result is not None:
+                try:
+                    mode_overlap_result = run_mode_overlap_analysis(
+                        design_spec=spec,
+                        optimization_result=result,
+                        mode_result=mode_result,
+                        propagation_result=propagation_result,
+                        output_dir=run_dir,
+                    )
+                    write_run_log(
+                        run_dir,
+                        "V3.2 port mode overlap analysis finished.",
+                    )
+                    write_run_log(
+                        run_dir,
+                        "mode_overlap_result.json generated: "
+                        f"{mode_overlap_result['mode_overlap_result_path']}",
+                    )
+                    write_run_log(
+                        run_dir,
+                        "mode_overlap_comparison.png generated: "
+                        f"{mode_overlap_result['mode_overlap_comparison_path']}",
+                    )
+                    write_run_log(
+                        run_dir,
+                        "field_output_profile_with_modes.png generated: "
+                        f"{mode_overlap_result['field_output_profile_with_modes_path']}",
+                    )
+                except Exception as overlap_error:
+                    write_run_log(
+                        run_dir,
+                        "V3.2 mode overlap failed; continuing V3.1 workflow: "
+                        f"{type(overlap_error).__name__}: {overlap_error}",
+                    )
+                    write_run_log(run_dir, traceback.format_exc())
+                    st.warning(
+                        "V3.2 端口模式重叠分析未完成；V3.0/V3.1 结果仍可继续生成。"
+                    )
+
             gds_path = generate_gds(spec=spec, result=result, output_dir=run_dir)
             layout_preview_path = generate_layout_preview(
                 spec=spec,
@@ -477,6 +529,25 @@ if run_button:
                     )
                     write_run_log(run_dir, traceback.format_exc())
 
+            if mode_overlap_result is not None:
+                try:
+                    append_v32_mode_overlap_section(
+                        report_path=report_path,
+                        output_dir=run_dir,
+                    )
+                    write_run_log(
+                        run_dir,
+                        "V3.2 mode overlap report section appended in Streamlit.",
+                    )
+                except Exception as overlap_report_error:
+                    write_run_log(
+                        run_dir,
+                        "V3.2 mode overlap report append failed; continuing: "
+                        f"{type(overlap_report_error).__name__}: "
+                        f"{overlap_report_error}",
+                    )
+                    write_run_log(run_dir, traceback.format_exc())
+
             zip_path = create_result_package(output_dir=run_dir)
             append_v15_report_appendix(
                 report_path=report_path,
@@ -485,12 +556,12 @@ if run_button:
                 version=DEMO_VERSION,
                 description=DEMO_DESCRIPTION,
             )
-            write_run_log(run_dir, "V3.1 engineering appendix added.")
+            write_run_log(run_dir, "V3.2 engineering appendix added.")
             write_success_log(run_dir)
             zip_path = create_result_package(output_dir=run_dir)
             write_run_log(run_dir, f"Final result package generated: {zip_path}")
 
-        st.success("V3.1 设计流程运行完成。")
+        st.success("V3.2 设计流程运行完成。")
         st.session_state["last_run_dir"] = str(run_dir)
 
     except Exception as error:
@@ -502,25 +573,37 @@ if run_button:
 
 
 st.divider()
-st.subheader("查看最近一次 V3.1 运行结果")
-if st.button("加载最近一次运行结果"):
+st.caption("RUN EXPLORER · LOCAL ARTIFACTS")
+st.subheader("运行结果工作区")
+st.write("加载最近一次结果，先查看决策摘要，再按需展开完整技术分析与交付文件。")
+load_col, status_col = st.columns([1, 3])
+with load_col:
+    load_latest = st.button("加载最近运行", width="stretch")
+
+if load_latest:
     latest_run_dir = find_latest_run_dir(Path("outputs"))
     if latest_run_dir is None:
         st.warning("未找到 outputs/run_时间戳 目录，请先运行一次设计。")
     else:
         st.session_state["last_run_dir"] = str(latest_run_dir)
 
+with status_col:
+    if "last_run_dir" in st.session_state:
+        st.success(f"已选择：{Path(st.session_state['last_run_dir']).name}")
+    else:
+        st.info("尚未选择运行记录")
+
 if "last_run_dir" in st.session_state:
     display_v2_result_panel(st.session_state["last_run_dir"])
 else:
-    st.info("请运行一次 V3.1 设计，或加载最近一次运行结果。")
+    st.info("请从左侧运行一次设计，或加载最近运行记录。")
 
 st.divider()
 st.markdown(
     """
-### 当前 V3.1 demo 的定位
+#### 关于当前模型
 
-V3.1 保留 V3.0 二维标量 BPM 传播，并新增窗口宽度敏感性、增强传播图和 surrogate/BPM 对比。
-输出功率仍是窗口积分估计，window-based insertion loss 不是严格器件损耗，也不是全矢量 S 参数。
+V3.2 保留 V3.0/V3.1 的传播、窗口敏感性和模型对比，并新增简化 Gaussian 端口模式重叠积分。
+Overlap-based power 比窗口积分更具模式意识，但仍不是严格全矢量本征模式 S 参数。
 """
 )
