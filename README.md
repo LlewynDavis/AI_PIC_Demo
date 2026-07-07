@@ -8,13 +8,13 @@ AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo�
 
 ## 二、当前版本
 
-当前 `main` 分支对应最新稳定版本：
+当前 `dev` 分支开发版本：
 
 ```text
-V3.1_propagation_calibration
+V3.2_port_mode_overlap
 ```
 
-V3.1 在 V3.0 二维标量 BPM 传播基础上新增输出窗口敏感性、增强传播图和 surrogate/BPM 模型对比，用于提高传播结果的可解释性和工程可信度。现有 surrogate 优化和 V3.0 传播输出继续保留。
+V3.2 在 V3.1 传播仿真校准基础上新增简化 Gaussian 输出端口模式，并将二维标量 BPM 最终复数场投影到端口模式上，以获得比简单窗口积分更具模式意识的输出功率估算。V3.0/V3.1 功能与输出继续保留。
 
 ## 三、当前版本主要功能
 
@@ -36,6 +36,13 @@ V3.1 在 V3.0 二维标量 BPM 传播基础上新增输出窗口敏感性、增�
 - V3.1 enhanced propagation plot
 - Surrogate model 与 BPM model 对比
 - Window-based insertion loss 解释与模型可信度校准
+- 端口 Gaussian 模式构建与归一化
+- BPM 输出复数场与端口模式重叠积分
+- Overlap-based 输出端口功率、分光不均衡和等效插损估算
+- Window integration 与 mode overlap integration 对比
+- `mode_overlap_result.json` 模式重叠结构化结果
+- `mode_overlap_comparison.png` 三类功率估算对比
+- `field_output_profile_with_modes.png` 输出场与端口模式图
 - GDS 版图及版图预览生成
 - Streamlit 网页展示
 - 中文设计报告生成
@@ -145,6 +152,10 @@ streamlit run app.py
 - `output_window_sensitivity_result.json`
 - `model_comparison.png`
 - `model_comparison_result.json`
+- `bpm_final_field_data.npz`
+- `mode_overlap_result.json`
+- `mode_overlap_comparison.png`
+- `field_output_profile_with_modes.png`
 - `length_sweep.png`
 - `width_length_heatmap.png`
 - `layout_preview.png`
@@ -192,6 +203,9 @@ python tools/clean_outputs.py --keep 3 --apply
 - V3.1 的 output power 仍是窗口积分估计。
 - `window_based_insertion_loss_db` 不是严格器件插入损耗。
 - Surrogate 与 BPM 的比较用于趋势分析，不是严格同一物理量的数值对比。
+- V3.2 的输出端口模式是简化 Gaussian 近似。
+- Overlap-based power 比窗口积分更接近端口模式功率提取，但仍不是严格全矢量本征模式 S 参数。
+- 后续可将 Gaussian 模式替换为真实波导本征模式，或接入外部高保真仿真器结果。
 - 所有优化和带宽趋势结果均应通过更高保真仿真或实验进一步验证。
 
 ## 十二、后续开发计划

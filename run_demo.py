@@ -5,6 +5,7 @@ import traceback
 from core.material_database import get_platform_materials
 from core.mode_solver import run_mode_solver_analysis
 from core.model_comparison import run_model_comparison_analysis
+from core.mode_overlap import run_mode_overlap_analysis
 from core.optimizer import optimize_length
 from core.package_generator import create_result_package
 from core.propagation_solver import run_propagation_analysis
@@ -22,15 +23,16 @@ from core.spec_parser import parse_design_text
 from core.v23_report_appendix import insert_v23_wavelength_section
 from core.v30_report_appendix import append_v30_propagation_section
 from core.v31_report_appendix import append_v31_calibration_section
+from core.v32_report_appendix import append_v32_mode_overlap_section
 from core.validation import validate_design_spec, validation_result_to_text
 from core.v2_report_appendix import insert_v2_mode_section
 from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V3.1"
+DEMO_VERSION = "V3.2"
 DEMO_DESCRIPTION = (
-    "传播仿真校准与模型对比版：增加窗口敏感性、增强传播图和 surrogate/BPM 对比"
+    "端口模式重叠积分版：在二维标量 BPM 输出场上增加简化 Gaussian 模式投影"
 )
 
 
@@ -318,6 +320,45 @@ def main() -> None:
                 "V3.1 model comparison skipped because propagation failed.",
             )
 
+        mode_overlap_result = None
+        if propagation_result is not None:
+            try:
+                mode_overlap_result = run_mode_overlap_analysis(
+                    design_spec=design_spec_dict,
+                    optimization_result=optimization_result,
+                    mode_result=mode_result,
+                    propagation_result=propagation_result,
+                    output_dir=run_dir,
+                )
+                write_run_log(run_dir, "V3.2 port mode overlap analysis finished.")
+                write_run_log(
+                    run_dir,
+                    "mode_overlap_result.json generated: "
+                    f"{mode_overlap_result['mode_overlap_result_path']}",
+                )
+                write_run_log(
+                    run_dir,
+                    "mode_overlap_comparison.png generated: "
+                    f"{mode_overlap_result['mode_overlap_comparison_path']}",
+                )
+                write_run_log(
+                    run_dir,
+                    "field_output_profile_with_modes.png generated: "
+                    f"{mode_overlap_result['field_output_profile_with_modes_path']}",
+                )
+            except Exception as overlap_error:
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap failed; continuing V3.1 workflow: "
+                    f"{type(overlap_error).__name__}: {overlap_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
+        else:
+            write_run_log(
+                run_dir,
+                "V3.2 mode overlap skipped because propagation failed.",
+            )
+
         # 5. 生成 GDS 和版图预览图
         gds_path = generate_gds(
             spec=design_spec_dict,
@@ -385,6 +426,25 @@ def main() -> None:
                 )
                 write_run_log(run_dir, traceback.format_exc())
 
+        if mode_overlap_result is not None:
+            try:
+                append_v32_mode_overlap_section(
+                    report_path=report_path,
+                    output_dir=run_dir,
+                )
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap report section appended.",
+                )
+            except Exception as overlap_report_error:
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap report append failed; continuing: "
+                    f"{type(overlap_report_error).__name__}: "
+                    f"{overlap_report_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
+
         zip_path = create_result_package(output_dir=run_dir)
         write_run_log(run_dir, f"Result package generated: {zip_path}")
 
@@ -441,6 +501,16 @@ def main() -> None:
             print(
                 "BPM-surrogate ΔP:    "
                 f"{model_comparison_result['difference']['delta_total_power']:.4f}"
+            )
+        if mode_overlap_result is not None:
+            print(
+                "BPM overlap powers:  "
+                f"{mode_overlap_result['overlap_p_out1']:.4f} / "
+                f"{mode_overlap_result['overlap_p_out2']:.4f}"
+            )
+            print(
+                "BPM overlap total:   "
+                f"{mode_overlap_result['total_overlap_power']:.4f}"
             )
         print("=" * 60)
         print(f"Report:              {report_path}")

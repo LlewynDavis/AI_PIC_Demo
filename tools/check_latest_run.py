@@ -20,6 +20,10 @@ REQUIRED_FILES = [
     "output_window_sensitivity_result.json",
     "model_comparison.png",
     "model_comparison_result.json",
+    "bpm_final_field_data.npz",
+    "mode_overlap_result.json",
+    "mode_overlap_comparison.png",
+    "field_output_profile_with_modes.png",
     "length_sweep.png",
     "width_length_heatmap.png",
     "layout_preview.png",
@@ -49,9 +53,9 @@ def find_latest_run_dir(outputs_dir: Path) -> Path | None:
 
 
 def check_run_dir(run_dir: Path) -> bool:
-    """检查指定运行目录中是否包含 V3.1 所需关键输出文件。"""
+    """检查指定运行目录中是否包含 V3.2 所需关键输出文件。"""
     print("=" * 70)
-    print("AI PIC Demo V3.1 输出完整性检查")
+    print("AI PIC Demo V3.2 输出完整性检查")
     print("=" * 70)
     print(f"检查目录：{run_dir}")
     print()

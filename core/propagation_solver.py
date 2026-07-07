@@ -552,9 +552,19 @@ def run_propagation_analysis(
         input_field=input_field,
         reference_neff=reference_neff,
     )
+    final_field_complex = field_map_complex[-1]
+    final_intensity = intensity_map[-1]
+    final_field_data_path = output_dir / "bpm_final_field_data.npz"
+    np.savez_compressed(
+        final_field_data_path,
+        x_um=x_um,
+        final_field_real=np.real(final_field_complex),
+        final_field_imag=np.imag(final_field_complex),
+        final_intensity=final_intensity,
+    )
     power_result = estimate_output_powers(
         x_um=x_um,
-        output_field=field_map_complex[-1],
+        output_field=final_field_complex,
         output_separation_um=output_separation_um,
         output_window_um=output_window_um,
     )
@@ -567,7 +577,7 @@ def run_propagation_analysis(
     )
     output_profile_plot_path = save_field_output_profile_plot(
         x_um=x_um,
-        output_field=field_map_complex[-1],
+        output_field=final_field_complex,
         output1_center_um=power_result["output1_center_um"],
         output2_center_um=power_result["output2_center_um"],
         output_window_um=output_window_um,
@@ -587,7 +597,7 @@ def run_propagation_analysis(
         mmi_width_um=mmi_width_um,
         mmi_length_um=mmi_length_um,
         x_um=x_um,
-        output_field=field_map_complex[-1],
+        output_field=final_field_complex,
         output_separation_um=output_separation_um,
         default_output_window_um=output_window_um,
         output_dir=output_dir,
@@ -628,6 +638,7 @@ def run_propagation_analysis(
             "output_window_sensitivity_result.json"
         ),
         "output_window_sensitivity_png": "output_window_sensitivity.png",
+        "bpm_final_field_data_npz": final_field_data_path.name,
         "interpretation": (
             "insertion_loss_db is retained for compatibility. V3.1 recommends "
             "window_based_insertion_loss_db because the value is derived from "
@@ -660,6 +671,7 @@ def run_propagation_analysis(
             "output_window_sensitivity_plot_path": sensitivity_result[
                 "output_window_sensitivity_plot_path"
             ],
+            "bpm_final_field_data_path": str(final_field_data_path),
         }
     )
     return propagation_result

@@ -65,6 +65,10 @@ def generate_report(
         ),
         ("model_comparison.png", "Surrogate 与 BPM 模型对比图"),
         ("model_comparison_result.json", "Surrogate 与 BPM 模型对比结果"),
+        ("bpm_final_field_data.npz", "BPM 输出端复数场压缩数据"),
+        ("mode_overlap_result.json", "V3.2 端口模式重叠积分结果"),
+        ("mode_overlap_comparison.png", "三类端口功率估算对比图"),
+        ("field_output_profile_with_modes.png", "输出场与 Gaussian 端口模式"),
         ("length_sweep.png", "最优宽度下的 MMI 长度扫描图"),
         ("width_length_heatmap.png", "MMI 宽度—长度二维优化热力图"),
         ("layout_preview.png", "1×2 MMI 简化版图预览"),
@@ -78,7 +82,9 @@ def generate_report(
         for filename, description in output_files
     )
 
-    if version == "V3.1":
+    if version == "V3.2":
+        version_positioning = "端口模式重叠积分版"
+    elif version == "V3.1":
         version_positioning = "传播仿真校准与模型对比版"
     elif version.startswith("V3"):
         version_positioning = "二维标量 BPM 光场传播仿真版"
@@ -266,7 +272,7 @@ MMI 分束器的基本原理是 **多模干涉自成像效应**。
    V3.0 使用二维标量 BPM 展示 MMI 光场演化趋势，不是严格全矢量 FDTD/FEM/EME 仿真。
 
 4. **传播损耗是窗口积分意义下的等效指标**
-   V3.1 的 window-based insertion loss 随输出窗口宽度变化，不能等同于严格器件插入损耗或全矢量 S 参数。
+   V3.1 的 window-based insertion loss 随输出窗口宽度变化，不能等同于严格器件插入损耗或全矢量 S 参数。V3.2 的端口模式仍是 Gaussian 近似，overlap-based power 也不是严格全矢量本征模式 S 参数。
 
 5. **未提取真实 S 参数**
    当前结果不能直接作为最终设计验证结果使用。

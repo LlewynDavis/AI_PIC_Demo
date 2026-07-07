@@ -2,6 +2,30 @@
 
 本文档按照时间倒序记录主要版本变化。历史代码通过 Git tag 和 GitHub Release 保存，主分支不维护完整源码副本。
 
+## V3.2_port_mode_overlap — 端口模式重叠积分版
+
+### 版本定位
+
+V3.2 在 V3.1 传播仿真校准基础上，增加简化 Gaussian 输出端口模式，并将二维标量 BPM 输出场投影到端口模式上，用于获得比窗口积分更合理、更具模式意识的端口功率估计。
+
+### 新增功能
+
+- 新增 `core/mode_overlap.py`。
+- 新增 `bpm_final_field_data.npz`，保存最终输出端复数场和强度。
+- 新增 `mode_overlap_result.json`。
+- 新增 `mode_overlap_comparison.png`。
+- 新增 `field_output_profile_with_modes.png`。
+- 网页新增 V3.2 端口模式重叠展示与下载区。
+- 报告新增 V3.2 端口模式重叠积分分析。
+- 完整性检查和结果包加入 V3.2 输出。
+
+### 局限性或备注
+
+- 端口模式仍是 Gaussian 近似。
+- BPM 场仍是二维标量近似。
+- Overlap-based power 不是严格全矢量 eigenmode S 参数提取。
+- 后续可接入真实波导本征模式或外部高保真仿真器。
+
 ## V3.1_propagation_calibration — 传播仿真校准与模型对比版
 
 ### 版本定位
