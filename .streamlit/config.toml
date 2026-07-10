@@ -1,6 +1,10 @@
-[server]
-fileWatcherType = "poll"
-runOnSave = true
+[theme]
+base = "dark"
+primaryColor = "#3B82F6"
+backgroundColor = "#07111F"
+secondaryBackgroundColor = "#0D1B2A"
+textColor = "#EAF2FF"
+font = "sans serif"
 
-[runner]
-fastReruns = true
+[client]
+toolbarMode = "minimal"

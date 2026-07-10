@@ -54,6 +54,21 @@ def generate_report(
         ("wavelength_sweep_result.json", "保存 V2.5 有限差分 neff 波长扫描结果"),
         ("wavelength_sweep.png", "输出功率随波长变化图"),
         ("wavelength_imbalance.png", "分光不均衡随波长变化图"),
+        ("propagation_result.json", "保存 V3.0 标量 BPM 传播结果"),
+        ("field_propagation.png", "MMI 区域标量 BPM 光场传播图"),
+        ("field_output_profile.png", "输出端横向强度与端口积分窗口"),
+        ("field_propagation_enhanced.png", "V3.1 增强版标量 BPM 传播图"),
+        ("output_window_sensitivity.png", "输出窗口宽度敏感性图"),
+        (
+            "output_window_sensitivity_result.json",
+            "输出窗口宽度敏感性结果",
+        ),
+        ("model_comparison.png", "Surrogate 与 BPM 模型对比图"),
+        ("model_comparison_result.json", "Surrogate 与 BPM 模型对比结果"),
+        ("bpm_final_field_data.npz", "BPM 输出端复数场压缩数据"),
+        ("mode_overlap_result.json", "V3.2 端口模式重叠积分结果"),
+        ("mode_overlap_comparison.png", "三类端口功率估算对比图"),
+        ("field_output_profile_with_modes.png", "输出场与 Gaussian 端口模式"),
         ("length_sweep.png", "最优宽度下的 MMI 长度扫描图"),
         ("width_length_heatmap.png", "MMI 宽度—长度二维优化热力图"),
         ("layout_preview.png", "1×2 MMI 简化版图预览"),
@@ -67,7 +82,13 @@ def generate_report(
         for filename, description in output_files
     )
 
-    if version == "V2.5":
+    if version == "V3.2":
+        version_positioning = "端口模式重叠积分版"
+    elif version == "V3.1":
+        version_positioning = "传播仿真校准与模型对比版"
+    elif version.startswith("V3"):
+        version_positioning = "二维标量 BPM 光场传播仿真版"
+    elif version == "V2.5":
         version_positioning = "有限差分模式求解版"
     elif version == "V2.3":
         version_positioning = "波长扫描增强版"
@@ -241,19 +262,22 @@ MMI 分束器的基本原理是 **多模干涉自成像效应**。
 
 当前版本虽然增强了物理参数链路，但仍属于轻量级 demo，主要局限如下：
 
-1. **neff 估算仍是近似模型**  
-   当前有效折射率由简化经验模型估算，不是真实模式求解结果。
+1. **模式求解仍是标量近似模型**
+   当前有效折射率来自二维标量有限差分模式求解，不是严格全矢量 FDE/FEM 结果。
 
 2. **MMI 响应仍是替代模型**  
    输出功率、插入损耗和分光不均衡来自轻量级 surrogate model，并不代表真实器件性能。
 
-3. **未计算真实电磁场分布**  
-   当前没有求解 TE/TM 模式场、光场传播图或能量分布。
+3. **传播场仍是二维标量近似**
+   V3.0 使用二维标量 BPM 展示 MMI 光场演化趋势，不是严格全矢量 FDTD/FEM/EME 仿真。
 
-4. **未提取真实 S 参数**  
+4. **传播损耗是窗口积分意义下的等效指标**
+   V3.1 的 window-based insertion loss 随输出窗口宽度变化，不能等同于严格器件插入损耗或全矢量 S 参数。V3.2 的端口模式仍是 Gaussian 近似，overlap-based power 也不是严格全矢量本征模式 S 参数。
+
+5. **未提取真实 S 参数**
    当前结果不能直接作为最终设计验证结果使用。
 
-5. **尚未加入 DRC / LVS / 工艺规则检查**  
+6. **尚未加入 DRC / LVS / 工艺规则检查**
    GDS 文件已经可以生成，但还没有进行完整的工艺规则验证。
 
 ---

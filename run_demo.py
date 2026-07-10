@@ -4,8 +4,11 @@ import traceback
 
 from core.material_database import get_platform_materials
 from core.mode_solver import run_mode_solver_analysis
+from core.model_comparison import run_model_comparison_analysis
+from core.mode_overlap import run_mode_overlap_analysis
 from core.optimizer import optimize_length
 from core.package_generator import create_result_package
+from core.propagation_solver import run_propagation_analysis
 from core.report_appendix import append_v15_report_appendix
 from core.report_generator import generate_report
 from core.run_manager import (
@@ -18,15 +21,18 @@ from core.run_manager import (
 )
 from core.spec_parser import parse_design_text
 from core.v23_report_appendix import insert_v23_wavelength_section
+from core.v30_report_appendix import append_v30_propagation_section
+from core.v31_report_appendix import append_v31_calibration_section
+from core.v32_report_appendix import append_v32_mode_overlap_section
 from core.validation import validate_design_spec, validation_result_to_text
 from core.v2_report_appendix import insert_v2_mode_section
 from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V2.5"
+DEMO_VERSION = "V3.2"
 DEMO_DESCRIPTION = (
-    "半真实有限差分模式求解版：使用二维标量 Helmholtz 有限差分本征模求解 neff"
+    "端口模式重叠积分版：在二维标量 BPM 输出场上增加简化 Gaussian 模式投影"
 )
 
 
@@ -48,7 +54,7 @@ def spec_to_dict(spec) -> dict:
 
 
 def main() -> None:
-    run_dir = create_run_directory("outputs")
+    run_dir = create_run_directory(Path("outputs"))
     init_run_log(
         run_dir=run_dir,
         version=DEMO_VERSION,
@@ -234,7 +240,126 @@ def main() -> None:
             f"{wavelength_sweep_result['max_abs_imbalance_db']:.4f} dB",
         )
 
-        # 4. 生成 GDS 和版图预览图
+        # 4. 在 surrogate 优化之后增加 V3.0 标量 BPM 传播验证。
+        propagation_result = None
+        try:
+            propagation_result = run_propagation_analysis(
+                design_spec=design_spec_dict,
+                optimization_result=optimization_result,
+                mode_result=mode_result,
+                output_dir=run_dir,
+            )
+            write_run_log(run_dir, "V3.0 scalar BPM propagation finished.")
+            write_run_log(
+                run_dir,
+                "propagation_result.json generated: "
+                f"{propagation_result['propagation_result_path']}",
+            )
+            write_run_log(
+                run_dir,
+                "field_propagation.png generated: "
+                f"{propagation_result['field_propagation_path']}",
+            )
+            write_run_log(
+                run_dir,
+                "field_output_profile.png generated: "
+                f"{propagation_result['field_output_profile_path']}",
+            )
+            write_run_log(
+                run_dir,
+                "field_propagation_enhanced.png generated: "
+                f"{propagation_result['field_propagation_enhanced_path']}",
+            )
+            write_run_log(
+                run_dir,
+                "output_window_sensitivity_result.json generated: "
+                f"{propagation_result['output_window_sensitivity_result_path']}",
+            )
+            write_run_log(
+                run_dir,
+                "output_window_sensitivity.png generated: "
+                f"{propagation_result['output_window_sensitivity_plot_path']}",
+            )
+        except Exception as propagation_error:
+            write_run_log(
+                run_dir,
+                "V3.0 propagation analysis failed; continuing V2.6 workflow: "
+                f"{type(propagation_error).__name__}: {propagation_error}",
+            )
+            write_run_log(run_dir, traceback.format_exc())
+
+        model_comparison_result = None
+        if propagation_result is not None:
+            try:
+                model_comparison_result = run_model_comparison_analysis(
+                    optimization_result=optimization_result,
+                    propagation_result=propagation_result,
+                    output_dir=run_dir,
+                )
+                write_run_log(run_dir, "V3.1 model comparison finished.")
+                write_run_log(
+                    run_dir,
+                    "model_comparison_result.json generated: "
+                    f"{model_comparison_result['model_comparison_result_path']}",
+                )
+                write_run_log(
+                    run_dir,
+                    "model_comparison.png generated: "
+                    f"{model_comparison_result['model_comparison_plot_path']}",
+                )
+            except Exception as comparison_error:
+                write_run_log(
+                    run_dir,
+                    "V3.1 model comparison failed; continuing V3.0 workflow: "
+                    f"{type(comparison_error).__name__}: {comparison_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
+        else:
+            write_run_log(
+                run_dir,
+                "V3.1 model comparison skipped because propagation failed.",
+            )
+
+        mode_overlap_result = None
+        if propagation_result is not None:
+            try:
+                mode_overlap_result = run_mode_overlap_analysis(
+                    design_spec=design_spec_dict,
+                    optimization_result=optimization_result,
+                    mode_result=mode_result,
+                    propagation_result=propagation_result,
+                    output_dir=run_dir,
+                )
+                write_run_log(run_dir, "V3.2 port mode overlap analysis finished.")
+                write_run_log(
+                    run_dir,
+                    "mode_overlap_result.json generated: "
+                    f"{mode_overlap_result['mode_overlap_result_path']}",
+                )
+                write_run_log(
+                    run_dir,
+                    "mode_overlap_comparison.png generated: "
+                    f"{mode_overlap_result['mode_overlap_comparison_path']}",
+                )
+                write_run_log(
+                    run_dir,
+                    "field_output_profile_with_modes.png generated: "
+                    f"{mode_overlap_result['field_output_profile_with_modes_path']}",
+                )
+            except Exception as overlap_error:
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap failed; continuing V3.1 workflow: "
+                    f"{type(overlap_error).__name__}: {overlap_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
+        else:
+            write_run_log(
+                run_dir,
+                "V3.2 mode overlap skipped because propagation failed.",
+            )
+
+        # 5. 生成 GDS 和版图预览图
         gds_path = generate_gds(
             spec=design_spec_dict,
             result=optimization_result,
@@ -251,7 +376,7 @@ def main() -> None:
             f"Layout preview generated: {layout_preview_path}",
         )
 
-        # 5. 生成报告并打包本次运行结果
+        # 6. 生成报告并打包本次运行结果
         report_path = generate_report(
             spec=design_spec_dict,
             result=optimization_result,
@@ -272,6 +397,53 @@ def main() -> None:
             wavelength_sweep_result=wavelength_sweep_result,
         )
         write_run_log(run_dir, "V2.5 wavelength sweep report section inserted.")
+
+        if propagation_result is not None:
+            append_v30_propagation_section(
+                report_path=report_path,
+                propagation_result_path=Path(
+                    propagation_result["propagation_result_path"]
+                ),
+            )
+            write_run_log(run_dir, "V3.0 propagation report section appended.")
+
+        if model_comparison_result is not None:
+            try:
+                append_v31_calibration_section(
+                    report_path=report_path,
+                    output_dir=run_dir,
+                )
+                write_run_log(
+                    run_dir,
+                    "V3.1 calibration report section appended.",
+                )
+            except Exception as calibration_report_error:
+                write_run_log(
+                    run_dir,
+                    "V3.1 calibration report append failed; continuing: "
+                    f"{type(calibration_report_error).__name__}: "
+                    f"{calibration_report_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
+
+        if mode_overlap_result is not None:
+            try:
+                append_v32_mode_overlap_section(
+                    report_path=report_path,
+                    output_dir=run_dir,
+                )
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap report section appended.",
+                )
+            except Exception as overlap_report_error:
+                write_run_log(
+                    run_dir,
+                    "V3.2 mode overlap report append failed; continuing: "
+                    f"{type(overlap_report_error).__name__}: "
+                    f"{overlap_report_error}",
+                )
+                write_run_log(run_dir, traceback.format_exc())
 
         zip_path = create_result_package(output_dir=run_dir)
         write_run_log(run_dir, f"Result package generated: {zip_path}")
@@ -315,6 +487,31 @@ def main() -> None:
         )
         print(f"Imbalance:           {optimization_result['imbalance_db']:.3f} dB")
         print(f"Best score:          {optimization_result['best_score']:.6f}")
+        if propagation_result is not None:
+            print(
+                "BPM output powers:   "
+                f"{propagation_result['p_out1']:.4f} / "
+                f"{propagation_result['p_out2']:.4f}"
+            )
+            print(
+                "BPM collected power: "
+                f"{propagation_result['total_collected_power']:.4f}"
+            )
+        if model_comparison_result is not None:
+            print(
+                "BPM-surrogate ΔP:    "
+                f"{model_comparison_result['difference']['delta_total_power']:.4f}"
+            )
+        if mode_overlap_result is not None:
+            print(
+                "BPM overlap powers:  "
+                f"{mode_overlap_result['overlap_p_out1']:.4f} / "
+                f"{mode_overlap_result['overlap_p_out2']:.4f}"
+            )
+            print(
+                "BPM overlap total:   "
+                f"{mode_overlap_result['total_overlap_power']:.4f}"
+            )
         print("=" * 60)
         print(f"Report:              {report_path}")
         print(f"GDS:                 {gds_path}")
