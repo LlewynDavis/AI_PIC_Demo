@@ -85,3 +85,9 @@ python tools/check_latest_run.py
 - 端口模式重叠积分
 - 插入损耗与分光不均衡
 - GDS 版图与 PDK 基础
+
+## ChatGPT 与 Codex 协作
+
+本项目使用 GitHub 作为工程事实源，使用私人 Google Drive 作为实时协作与任务交接层。ChatGPT 负责研究和评审，Codex 负责实施和验证，Obsidian 知识库只做选择性发布。
+
+协作规则、状态、决策、交接格式和 ChatGPT Project 指令见 [`docs/collab/`](docs/collab/README.md)。
