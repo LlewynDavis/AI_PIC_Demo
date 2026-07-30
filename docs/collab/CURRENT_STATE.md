@@ -6,7 +6,7 @@
 - canonical branch：`main`
 - stable version：`V3.2_port_mode_overlap`
 - repository visibility：`PUBLIC`
-- collaboration protocol revision：`1`
+- collaboration protocol revision：`2`
 
 当前精确 commit 必须从 GitHub `main` 或本地 `git rev-parse HEAD` 实时读取，不在本文档中维护自引用 commit。
 
@@ -32,6 +32,7 @@
 - 仓库级 Codex 规则：已建立。
 - Google Drive 实时协作层：已建立。
 - ChatGPT Project 项目指令：以 `CHATGPT_PROJECT_INSTRUCTIONS.md` 为准。
+- 项目级自动对齐协调器：已建立，覆盖版本、工程、研究、网页、教学与文档任务。
 - Obsidian 同步策略：仅选择性发布，默认不进入 GitHub。
 
 ## 状态更新规则

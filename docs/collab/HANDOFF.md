@@ -39,3 +39,11 @@ completion_commit:
 3. ChatGPT 建议默认是 `PROPOSED`，不得自动提升为 `APPROVED`。
 4. 任务范围涉及 `INTERNAL` 或 `SENSITIVE` 内容时，不得把原文复制到公开 GitHub。
 5. 完成状态必须由读回结果、测试输出或可核验 commit 支持。
+
+## 自动路由规则
+
+1. 自动协调器只路由最新、完整、未处理的来源消息；历史对话初始化时只登记游标，不批量重放。
+2. 优先复用与主题匹配的现有 Codex 对话；无法可靠匹配时发送到项目协调入口。
+3. 目标对话正在执行冲突任务时不得重复派发，应记录等待状态并在下一轮检查。
+4. `APPROVED` 任务可在核对 `base_commit` 后自动进入 `IN_PROGRESS`；`PROPOSED` 任务只同步和评估。
+5. Codex 写回 `VERIFIED` 证据后，协调器将摘要送回对应 ChatGPT 对话；ChatGPT 读回事实源后才能关闭任务。

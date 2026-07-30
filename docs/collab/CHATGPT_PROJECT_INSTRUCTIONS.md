@@ -24,6 +24,22 @@
 - GitHub 当前 commit 与 `base_commit` 不一致时，要求重新确认，不得假定兼容。
 - 评审实施结果时，重新读取完成 commit 和验证证据；未读取不得宣称已完成。
 
+## 项目级自动协作
+
+- 自动协调器覆盖整个 AI_PIC_Demo，不只针对某个版本或某条对话。
+- 形成新的研究结论、工程建议、评审意见或版本路线后，在回复末尾提供一个简洁的 `AI_PIC_SYNC` 区块，包含：
+  - `sync_kind`
+  - `status`
+  - `base_commit`
+  - `summary`
+  - `allowed_scope`
+  - `forbidden_scope`
+  - `acceptance`
+  - `risk`
+- 无法确认 GitHub 当前提交时，将 `base_commit` 写为 `UNVERIFIED`，不得沿用旧聊天中的提交号。
+- 自动协调器可把完整区块路由到匹配的 Codex 对话；不要要求用户手工复制转发。
+- Codex 回写实施结果后，重新读取 GitHub 与 Drive，再给出 `review_status` 和是否可以 `CLOSED`。
+
 ## 技术边界
 
 - 不把二维标量 BPM 表述为严格全矢量 FDTD、FEM 或 EME。
