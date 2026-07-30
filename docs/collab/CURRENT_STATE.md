@@ -38,3 +38,11 @@
 ## 状态更新规则
 
 公开稳定状态写入本文件；实时 `base_commit`、任务状态、研究过程和往返验证结果写入私人 Drive。
+
+## 当前开发候选
+
+- development branch：`codex/v3.3-designspec-mcp-foundation`
+- candidate version：`V3.3_designspec_mcp_foundation`
+- implementation status：实施端验证通过，等待 ChatGPT/用户最终评审后合并
+- physical baseline：保持 V3.2 模式求解、MMI 优化、二维标量 BPM 和 Gaussian overlap 算法不变
+- verification evidence：`docs/verification/v3.3.md`

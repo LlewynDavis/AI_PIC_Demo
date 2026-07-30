@@ -1,14 +1,16 @@
 # AI_PIC_Demo
 
-## Current Stable Version: V3.2_port_mode_overlap
+## Current Version: V3.3_designspec_mcp_foundation
 
 AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo。项目以 SOI 平台 **1×2 MMI 光功率分束器**为例，展示从自然语言需求解析、参数建模、模式求解、MMI 优化、BPM 光场传播、端口模式重叠积分、GDS 版图生成、网页展示到报告输出的自动化流程。
 
-当前 V3.2 在 V3.1 传播仿真校准的基础上，引入简化 Gaussian 输出端口模式，并将二维标量 BPM 的最终复数场投影到端口模式上。该版本的 overlap 总功率约为 0.843，overlap-based insertion loss 约为 0.74 dB；这些数值用于 Demo、趋势分析和流程验证，不代表流片签核结果。
+当前 V3.3 在不改变 V3.2 物理算法和既有基准结果的前提下，引入版本化 PIC DesignSpec、Pydantic 校验、单位归一化、需求澄清状态、阶段错误码、Prompt Benchmark，以及无需外部 API 密钥的最小本地 MCP Server/Client。V3.2 的二维标量有限差分模式求解、MMI 优化、二维标量 BPM 和简化 Gaussian overlap 仍作为物理基线。
 
 ## 主要功能
 
 - 自然语言设计需求输入与结构化参数解析
+- PIC DesignSpec 1.0 与参数来源追踪
+- `needs_clarification` 需求澄清状态
 - 参数合法性检查
 - SOI 材料参数库
 - 二维标量有限差分模式求解
@@ -22,12 +24,16 @@ AI_PIC_Demo 是一个基于 AI 思路的光子芯片自动化设计平台 Demo�
 - GDS 版图生成
 - Streamlit 科研仿真工作台
 - 中文报告与结果打包
+- `run_manifest.json` / `status.json` 阶段状态
+- 本地 MCP 工具：DesignSpec 校验、MMI 初值估算、最近运行检查
+- 30 条需求 Prompt Benchmark
 
 ## 主要输出文件
 
 每次运行在 `outputs/run_时间戳/` 下生成独立结果目录，主要包括：
 
-- `design_spec.json`、`physical_params.json`、`mode_result.json`
+- `design_spec.json`、`run_manifest.json`、`status.json`
+- `physical_params.json`、`mode_result.json`
 - `index_profile.png`、`mode_profile.png`、`neff_vs_width.png`
 - `optimization_result.json`
 - `wavelength_sweep_result.json`、`wavelength_sweep.png`、`wavelength_imbalance.png`
@@ -53,13 +59,17 @@ python -m pip install -r requirements.txt
 python run_demo.py
 streamlit run app.py
 python tools/check_latest_run.py
+python -m unittest discover -s tests -v
+python tools/run_prompt_benchmark.py
+python tools/pic_mcp_client.py --smoke-test
 ```
 
 如果终端未识别 `streamlit`，可使用 `python -m streamlit run app.py`。网页默认地址通常为 <http://localhost:8501>。
 
 ## 模型边界
 
-- V3.2 仍然是二维标量近似。
+- V3.3 没有提高 V3.2 物理模型的电磁精度。
+- 当前模式和传播计算仍然是二维标量近似。
 - BPM 不是严格全矢量 FDTD、FEM 或 EME。
 - Gaussian port mode 是简化端口模式。
 - overlap-based power 比窗口积分更合理，但仍不是严格全矢量本征模式 S 参数。
@@ -93,3 +103,14 @@ python tools/check_latest_run.py
 项目级自动协调器负责发现双方新增或更新的对话、复用现有专用对话、同步完整上下文、核对 `base_commit`、路由已批准任务和回写验证证据。自动对齐不改变事实源，也不会把未批准建议直接当作工程任务执行。
 
 协作规则、状态、决策、交接格式和 ChatGPT Project 指令见 [`docs/collab/`](docs/collab/README.md)。
+
+## V3.3 工程资料
+
+- DesignSpec JSON 示例：[`config/v3.3_design_spec.example.json`](config/v3.3_design_spec.example.json)
+- DesignSpec YAML 示例：[`config/v3.3_design_spec.example.yaml`](config/v3.3_design_spec.example.yaml)
+- V3.3 版本说明：[`docs/versions/v3.3.md`](docs/versions/v3.3.md)
+- V3.3 验证记录：[`docs/verification/v3.3.md`](docs/verification/v3.3.md)
+- 后续工程路线：[`docs/ROADMAP.md`](docs/ROADMAP.md)
+- Benchmark 数据：[`benchmarks/v3.3/requirements.jsonl`](benchmarks/v3.3/requirements.jsonl)
+
+V3.3 的结构化设计思想参考 Sharma 等人在 2025 年发表的 PhIDO 工作，但本项目只采用可公开复现的 Schema、工具边界和评测思路；没有实现论文中的完整 RAG、多 Agent 或高保真求解器体系。

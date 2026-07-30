@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "request_status": "ready",
+  "clarification_questions": [],
+  "device": {
+    "type": {"value": "1x2_mmi_splitter", "source": "user"},
+    "input_ports": {"value": 1, "unit": "", "source": "formula"},
+    "output_ports": {"value": 2, "unit": "", "source": "formula"}
+  },
+  "platform": {
+    "name": {"value": "SOI", "source": "user"},
+    "core_material": {"value": "Si", "source": "default"},
+    "cladding_material": {"value": "SiO2", "source": "default"}
+  },
+  "wavelength": {"value": 1.55, "unit": "um", "source": "user"},
+  "polarization": {"value": "TE", "source": "default"},
+  "geometry": {
+    "waveguide_width": {"value": 0.5, "unit": "um", "source": "default"},
+    "waveguide_height": {"value": 0.22, "unit": "um", "source": "default"},
+    "mmi_width": {"value": 2.5, "unit": "um", "source": "default"},
+    "length_scan": {
+      "minimum": 3.0,
+      "maximum": 20.0,
+      "unit": "um",
+      "source": "default"
+    },
+    "mmi_width_scan": {
+      "minimum": 1.5,
+      "maximum": 4.0,
+      "unit": "um",
+      "source": "default"
+    }
+  },
+  "targets": {
+    "split_ratio": {"values": [0.5, 0.5], "source": "user"}
+  },
+  "simulation": {
+    "mode_solver": {"value": "scalar_fd_2d", "source": "default"},
+    "propagation_solver": {"value": "scalar_bpm_2d", "source": "default"},
+    "use_estimated_neff": {"value": true, "source": "default"},
+    "neff": {"value": 2.8, "unit": "", "source": "default"},
+    "length_scan_points": {"value": 200, "unit": "", "source": "default"},
+    "width_scan_points": {"value": 80, "unit": "", "source": "default"}
+  },
+  "outputs": {
+    "directory": {"value": "outputs", "source": "default"},
+    "formats": {
+      "value": ["json", "png", "gds", "md", "zip"],
+      "source": "default"
+    }
+  }
+}

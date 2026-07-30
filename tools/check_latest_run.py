@@ -3,6 +3,8 @@ from pathlib import Path
 
 REQUIRED_FILES = [
     "design_spec.json",
+    "run_manifest.json",
+    "status.json",
     "physical_params.json",
     "mode_result.json",
     "index_profile.png",
@@ -53,9 +55,9 @@ def find_latest_run_dir(outputs_dir: Path) -> Path | None:
 
 
 def check_run_dir(run_dir: Path) -> bool:
-    """检查指定运行目录中是否包含 V3.2 所需关键输出文件。"""
+    """检查指定运行目录中是否包含 V3.3 所需关键输出文件。"""
     print("=" * 70)
-    print("AI PIC Demo V3.2 输出完整性检查")
+    print("AI PIC Demo V3.3 输出完整性检查")
     print("=" * 70)
     print(f"检查目录：{run_dir}")
     print()

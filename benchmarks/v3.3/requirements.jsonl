@@ -1,0 +1,30 @@
+{"id":"complete_01","category":"complete","request":"请设计 SOI 平台、1550 nm、TE、50:50 的 1x2 MMI 分束器","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.5,0.5],"platform":"SOI"}}
+{"id":"complete_02","category":"complete","request":"SOI 1x2 MMI splitter, wavelength 1.55 um, TE, split 50:50","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.5,0.5]}}
+{"id":"complete_03","category":"complete","request":"设计一个 SOI MMI 分束器，波长 1310 nm，TM，70:30","expected_status":"ready","expected":{"wavelength_um":1.31,"target_split_ratio":[0.7,0.3],"polarization":"TM"}}
+{"id":"complete_04","category":"complete","request":"SOI splitter MMI wavelength=1.31 um TE 60/40","expected_status":"ready","expected":{"wavelength_um":1.31,"target_split_ratio":[0.6,0.4]}}
+{"id":"complete_05","category":"complete","request":"SOI平台1×2 MMI分束器，1550nm，均分","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.5,0.5]}}
+{"id":"complete_06","category":"complete","request":"1x2 MMI splitter on SOI at 1550 nm with equal split","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.5,0.5]}}
+{"id":"complete_07","category":"complete","request":"SOI MMI 分束器，波长为 1.55 μm，分光比 1:1","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.5,0.5]}}
+{"id":"complete_08","category":"complete","request":"SOI MMI splitter wavelength 1550nm ratio 80:20 neff=2.7","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.8,0.2],"neff":2.7}}
+{"id":"complete_09","category":"complete","request":"设计SOI上的MMI分束器，波长1550 nm，分光比45:55","expected_status":"ready","expected":{"wavelength_um":1.55,"target_split_ratio":[0.45,0.55]}}
+{"id":"complete_10","category":"complete","request":"SOI 1x2 splitter MMI wavelength: 1.55um TE 50/50","expected_status":"ready","expected":{"wavelength_um":1.55,"polarization":"TE"}}
+{"id":"ambiguous_01","category":"ambiguous","request":"帮我做一个 MMI 分束器","expected_status":"needs_clarification","expected":{}}
+{"id":"ambiguous_02","category":"ambiguous","request":"SOI MMI 分束器，50:50","expected_status":"needs_clarification","expected":{}}
+{"id":"ambiguous_03","category":"ambiguous","request":"1550 nm SOI 光子器件，50:50","expected_status":"needs_clarification","expected":{}}
+{"id":"ambiguous_04","category":"ambiguous","request":"SOI MMI 1550 nm","expected_status":"needs_clarification","expected":{}}
+{"id":"ambiguous_05","category":"ambiguous","request":"MMI 1550 nm 50:50","expected_status":"needs_clarification","expected":{}}
+{"id":"ambiguous_06","category":"ambiguous","request":"","expected_status":"needs_clarification","expected":{}}
+{"id":"unit_01","category":"mixed_units","request":"SOI MMI 1550 nm 50:50，waveguide width 500 nm","expected_status":"ready","expected":{"wavelength_um":1.55,"waveguide_width_um":0.5}}
+{"id":"unit_02","category":"mixed_units","request":"SOI MMI wavelength 1.55 um 50:50，波导宽度 0.5 μm","expected_status":"ready","expected":{"wavelength_um":1.55,"waveguide_width_um":0.5}}
+{"id":"unit_03","category":"mixed_units","request":"SOI MMI 波长 1550 nm 50:50，波导高度 220 nm","expected_status":"ready","expected":{"wavelength_um":1.55,"waveguide_height_um":0.22}}
+{"id":"unit_04","category":"mixed_units","request":"SOI MMI 1.31 um 50:50，MMI width 2500 nm","expected_status":"ready","expected":{"wavelength_um":1.31,"mmi_width_um":2.5}}
+{"id":"unit_05","category":"mixed_units","request":"SOI MMI 1310 nm 50:50，波导宽度500nm，MMI宽度2.5um","expected_status":"ready","expected":{"wavelength_um":1.31,"waveguide_width_um":0.5,"mmi_width_um":2.5}}
+{"id":"target_01","category":"target_change","request":"SOI MMI 1550 nm 90:10","expected_status":"ready","expected":{"target_split_ratio":[0.9,0.1]}}
+{"id":"target_02","category":"target_change","request":"SOI MMI 1550 nm 25/75","expected_status":"ready","expected":{"target_split_ratio":[0.25,0.75]}}
+{"id":"target_03","category":"target_change","request":"SOI MMI 1550 nm 33:67","expected_status":"ready","expected":{"target_split_ratio":[0.33,0.67]}}
+{"id":"target_04","category":"target_change","request":"SOI MMI 1550 nm 等分","expected_status":"ready","expected":{"target_split_ratio":[0.5,0.5]}}
+{"id":"invalid_01","category":"invalid","request":"SOI MMI 波长 -1550 nm 50:50","expected_status":"invalid","expected":{}}
+{"id":"invalid_02","category":"invalid","request":"SiN MMI 1550 nm 50:50","expected_status":"invalid","expected":{}}
+{"id":"invalid_03","category":"conflict","request":"SOI MMI 波长 1310 nm 和波长 1550 nm，50:50","expected_status":"needs_clarification","expected":{}}
+{"id":"invalid_04","category":"invalid","request":"SOI MMI 1550 nm 0:0","expected_status":"invalid","expected":{}}
+{"id":"invalid_05","category":"invalid","request":"SOI MMI 1550 nm 50:50，MMI width -2.5 um","expected_status":"invalid","expected":{}}

@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import traceback
 
+from core.design_spec import DESIGN_SPEC_VERSION, ParameterSource
 from core.material_database import get_platform_materials
 from core.mode_solver import run_mode_solver_analysis
 from core.model_comparison import run_model_comparison_analysis
@@ -19,20 +20,22 @@ from core.run_manager import (
     write_run_log,
     write_success_log,
 )
-from core.spec_parser import parse_design_text
+from core.run_status import RunStatusTracker, StageCode
+from core.spec_parser import parse_design_request, save_design_spec
 from core.v23_report_appendix import insert_v23_wavelength_section
 from core.v30_report_appendix import append_v30_propagation_section
 from core.v31_report_appendix import append_v31_calibration_section
 from core.v32_report_appendix import append_v32_mode_overlap_section
+from core.v33_report_appendix import append_v33_engineering_section
 from core.validation import validate_design_spec, validation_result_to_text
 from core.v2_report_appendix import insert_v2_mode_section
 from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V3.2"
+DEMO_VERSION = "V3.3"
 DEMO_DESCRIPTION = (
-    "端口模式重叠积分版：在二维标量 BPM 输出场上增加简化 Gaussian 模式投影"
+    "DesignSpec 与本地 MCP 基础版：保留 V3.2 物理流程并增加结构化工程接口"
 )
 
 
@@ -63,6 +66,13 @@ def main() -> None:
 
     write_run_log(run_dir, "Demo started.")
     write_run_log(run_dir, f"Run directory created: {run_dir}")
+    status_tracker = RunStatusTracker(
+        run_dir,
+        demo_version=DEMO_VERSION,
+        design_spec_schema_version=DESIGN_SPEC_VERSION,
+    )
+    active_code = StageCode.INPUT_EXTRACTION
+    active_stage = "input_extraction"
 
     try:
         user_requirement = (
@@ -72,26 +82,67 @@ def main() -> None:
         write_run_log(run_dir, user_requirement)
 
         # 1. 解析自然语言需求并保存结构化参数
-        design_spec = parse_design_text(user_requirement)
-        design_spec_dict = spec_to_dict(design_spec)
-        design_spec_path = get_output_path(run_dir, "design_spec.json")
-        save_json(design_spec_dict, design_spec_path)
+        parse_result = parse_design_request(user_requirement)
+        if not parse_result.is_valid or parse_result.design_spec is None:
+            status_tracker.record(
+                StageCode.INPUT_EXTRACTION,
+                stage="input_extraction",
+                state="failed",
+                message="; ".join(
+                    parse_result.errors or parse_result.clarification_questions
+                ),
+                recoverable=True,
+                suggested_action="补充澄清问题后重新运行。",
+            )
+            print("\n需求需要澄清，程序已停止。")
+            for question in parse_result.clarification_questions:
+                print(f"- {question}")
+            return
+        unified_design_spec = parse_result.design_spec
+        design_spec_dict = unified_design_spec.to_legacy_dict()
+        design_spec_path = save_design_spec(unified_design_spec, run_dir)
+        status_tracker.record(
+            StageCode.INPUT_EXTRACTION,
+            stage="input_extraction",
+            state="success",
+            message="Natural-language request parsed into DesignSpec 1.0.",
+            recoverable=False,
+            suggested_action="Continue with schema validation.",
+        )
         write_run_log(run_dir, "Design specification parsed.")
         write_run_log(run_dir, f"Saved design_spec.json: {design_spec_path}")
 
         # 2. 在进入物理建模和优化前完成参数校验
+        active_code = StageCode.SCHEMA_VALIDATION
+        active_stage = "schema_validation"
         validation_result = validate_design_spec(design_spec_dict)
         validation_text = validation_result_to_text(validation_result)
         write_run_log(run_dir, "Validation result:")
         write_run_log(run_dir, validation_text)
 
         if not validation_result.is_valid:
+            status_tracker.record(
+                StageCode.SCHEMA_VALIDATION,
+                stage="schema_validation",
+                state="failed",
+                message="; ".join(validation_result.errors),
+                recoverable=True,
+                suggested_action="修正 DesignSpec 中的物理范围或流程依赖。",
+            )
             print("\n参数校验未通过，程序已停止。")
             print(validation_text)
             write_run_log(run_dir, "Demo stopped because validation failed.")
             write_run_log(run_dir, "Status: FAILED")
             return
 
+        status_tracker.record(
+            StageCode.SCHEMA_VALIDATION,
+            stage="schema_validation",
+            state="success",
+            message="DesignSpec schema and legacy physical validation passed.",
+            recoverable=False,
+            suggested_action="Continue with physical parameter preparation.",
+        )
         print("\n参数校验通过。")
         if validation_result.warnings:
             print("\n参数警告：")
@@ -99,11 +150,23 @@ def main() -> None:
                 print(f"- {warning}")
 
         # 3. 运行 V2 模式分析，并将模式求解 neff 接入 MMI 优化
+        active_code = StageCode.PHYSICAL_PARAMETERS
+        active_stage = "physical_parameters"
         material_params = get_platform_materials(design_spec_dict["platform"])
         waveguide_width_um = design_spec_dict["waveguide_width_um"]
         waveguide_height_um = design_spec_dict["waveguide_height_um"]
         wavelength_um = design_spec_dict["wavelength_um"]
+        status_tracker.record(
+            StageCode.PHYSICAL_PARAMETERS,
+            stage="physical_parameters",
+            state="success",
+            message="SOI material and geometry parameters prepared.",
+            recoverable=False,
+            suggested_action="Run the existing scalar finite-difference mode solver.",
+        )
 
+        active_code = StageCode.MODE_SOLVER
+        active_stage = "mode_solver"
         mode_result = run_mode_solver_analysis(
             core_index=material_params["core_index"],
             cladding_index=material_params["cladding_index"],
@@ -142,7 +205,17 @@ def main() -> None:
             f"{mode_result['neff_sweep_result']['neff_vs_width_path']}",
         )
         write_run_log(run_dir, f"V2 neff used for MMI: {estimated_neff:.4f}")
+        status_tracker.record(
+            StageCode.MODE_SOLVER,
+            stage="mode_solver",
+            state="success",
+            message="Existing V3.2 scalar finite-difference mode stage completed.",
+            recoverable=False,
+            suggested_action="Continue with the existing MMI optimization.",
+        )
 
+        active_code = StageCode.OPTIMIZATION
+        active_stage = "optimization"
         optimization_result = optimize_length(
             spec=design_spec_dict,
             output_dir=run_dir,
@@ -154,7 +227,9 @@ def main() -> None:
 
         # 优化器保持 V1.5 兼容接口；运行后恢复用户语义并补充 V2 模式字段。
         design_spec_dict["use_estimated_neff"] = use_estimated_neff
-        save_json(design_spec_dict, design_spec_path)
+        unified_design_spec.simulation.neff.value = float(estimated_neff)
+        unified_design_spec.simulation.neff.source = ParameterSource.FORMULA
+        unified_design_spec.save_json(design_spec_path)
 
         physical_params = json.loads(
             physical_params_path.read_text(encoding="utf-8")
@@ -239,8 +314,18 @@ def main() -> None:
             "Max abs imbalance in wavelength sweep: "
             f"{wavelength_sweep_result['max_abs_imbalance_db']:.4f} dB",
         )
+        status_tracker.record(
+            StageCode.OPTIMIZATION,
+            stage="optimization",
+            state="success",
+            message="Existing width-length optimization and wavelength sweep completed.",
+            recoverable=False,
+            suggested_action="Continue with scalar BPM propagation validation.",
+        )
 
         # 4. 在 surrogate 优化之后增加 V3.0 标量 BPM 传播验证。
+        active_code = StageCode.PROPAGATION
+        active_stage = "propagation"
         propagation_result = None
         try:
             propagation_result = run_propagation_analysis(
@@ -280,6 +365,14 @@ def main() -> None:
                 "output_window_sensitivity.png generated: "
                 f"{propagation_result['output_window_sensitivity_plot_path']}",
             )
+            status_tracker.record(
+                StageCode.PROPAGATION,
+                stage="propagation",
+                state="success",
+                message="Existing V3.2 scalar BPM stage completed.",
+                recoverable=False,
+                suggested_action="Continue with overlap analysis.",
+            )
         except Exception as propagation_error:
             write_run_log(
                 run_dir,
@@ -287,6 +380,14 @@ def main() -> None:
                 f"{type(propagation_error).__name__}: {propagation_error}",
             )
             write_run_log(run_dir, traceback.format_exc())
+            status_tracker.record(
+                StageCode.PROPAGATION,
+                stage="propagation",
+                state="failed",
+                message=f"{type(propagation_error).__name__}: {propagation_error}",
+                recoverable=True,
+                suggested_action="Inspect run_log.txt; non-BPM outputs may still be used.",
+            )
 
         model_comparison_result = None
         if propagation_result is not None:
@@ -320,6 +421,8 @@ def main() -> None:
                 "V3.1 model comparison skipped because propagation failed.",
             )
 
+        active_code = StageCode.MODE_OVERLAP
+        active_stage = "mode_overlap"
         mode_overlap_result = None
         if propagation_result is not None:
             try:
@@ -346,6 +449,14 @@ def main() -> None:
                     "field_output_profile_with_modes.png generated: "
                     f"{mode_overlap_result['field_output_profile_with_modes_path']}",
                 )
+                status_tracker.record(
+                    StageCode.MODE_OVERLAP,
+                    stage="mode_overlap",
+                    state="success",
+                    message="Existing V3.2 Gaussian overlap stage completed.",
+                    recoverable=False,
+                    suggested_action="Continue with layout generation.",
+                )
             except Exception as overlap_error:
                 write_run_log(
                     run_dir,
@@ -353,13 +464,31 @@ def main() -> None:
                     f"{type(overlap_error).__name__}: {overlap_error}",
                 )
                 write_run_log(run_dir, traceback.format_exc())
+                status_tracker.record(
+                    StageCode.MODE_OVERLAP,
+                    stage="mode_overlap",
+                    state="failed",
+                    message=f"{type(overlap_error).__name__}: {overlap_error}",
+                    recoverable=True,
+                    suggested_action="Inspect overlap inputs; earlier stages remain available.",
+                )
         else:
             write_run_log(
                 run_dir,
                 "V3.2 mode overlap skipped because propagation failed.",
             )
+            status_tracker.record(
+                StageCode.MODE_OVERLAP,
+                stage="mode_overlap",
+                state="failed",
+                message="Skipped because scalar BPM propagation did not complete.",
+                recoverable=True,
+                suggested_action="Resolve the BPM stage before requesting overlap results.",
+            )
 
         # 5. 生成 GDS 和版图预览图
+        active_code = StageCode.LAYOUT
+        active_stage = "layout"
         gds_path = generate_gds(
             spec=design_spec_dict,
             result=optimization_result,
@@ -375,8 +504,18 @@ def main() -> None:
             run_dir,
             f"Layout preview generated: {layout_preview_path}",
         )
+        status_tracker.record(
+            StageCode.LAYOUT,
+            stage="layout",
+            state="success",
+            message="GDS and layout preview generated.",
+            recoverable=False,
+            suggested_action="Generate the report and package.",
+        )
 
         # 6. 生成报告并打包本次运行结果
+        active_code = StageCode.REPORT
+        active_stage = "report"
         report_path = generate_report(
             spec=design_spec_dict,
             result=optimization_result,
@@ -445,6 +584,9 @@ def main() -> None:
                 )
                 write_run_log(run_dir, traceback.format_exc())
 
+        append_v33_engineering_section(report_path)
+        write_run_log(run_dir, "V3.3 DesignSpec/MCP report section appended.")
+
         zip_path = create_result_package(output_dir=run_dir)
         write_run_log(run_dir, f"Result package generated: {zip_path}")
 
@@ -456,8 +598,19 @@ def main() -> None:
             description=DEMO_DESCRIPTION,
         )
         write_run_log(run_dir, f"{DEMO_VERSION} report appendix added.")
+        status_tracker.record(
+            StageCode.REPORT,
+            stage="report",
+            state="success",
+            message="Report and engineering appendix generated.",
+            recoverable=False,
+            suggested_action="Finalize the run manifest and result package.",
+        )
 
         # 刷新结果包，确保 ZIP 中包含追加工程说明后的最终报告。
+        status_tracker.success(
+            "V3.3 DesignSpec/MCP engineering flow completed without changing V3.2 physics."
+        )
         zip_path = create_result_package(output_dir=run_dir)
         write_run_log(run_dir, "Result package refreshed with final report.")
 
@@ -531,6 +684,14 @@ def main() -> None:
         write_error_log(run_dir, error)
         write_run_log(run_dir, "Traceback:")
         write_run_log(run_dir, error_text)
+        status_tracker.record(
+            active_code,
+            stage=active_stage,
+            state="failed",
+            message=f"{type(error).__name__}: {error}",
+            recoverable=False,
+            suggested_action="Inspect run_log.txt and the latest traceback.",
+        )
 
 
 if __name__ == "__main__":

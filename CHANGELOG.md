@@ -2,6 +2,29 @@
 
 本文档按照时间倒序记录主要版本变化。历史代码通过 Git tag 和 GitHub Release 保存，主分支不维护完整源码副本。
 
+## V3.3_designspec_mcp_foundation — DesignSpec 与本地 MCP 基础版
+
+### 版本定位
+
+在保持 V3.2 物理算法和基准结果不变的前提下，为自然语言需求、物理流程和外部工具调用建立统一、可验证、可追踪的结构化接口。
+
+### 新增功能
+
+- 新增版本化 PIC DesignSpec 1.0，覆盖器件、平台、波长、偏振、几何、目标、仿真和输出。
+- 所有设计参数记录 `user/default/formula/optimizer/unverified` 来源。
+- 新增 Pydantic 类型、单位、物理范围和求解器校验。
+- 新增 `needs_clarification` 状态，含糊或冲突需求不再静默补齐关键参数。
+- 新增 `run_manifest.json`、`status.json` 和 IE/SV/PH/MODE/OPT/BPM/OVL/LAY/REP/SUCCESS 阶段码。
+- 新增最小本地 MCP Server/Client 与三个结构化工具。
+- 新增 30 条自然语言需求 Benchmark、自动执行脚本和测试。
+- 新增 JSON/YAML DesignSpec 示例、版本说明和公开路线文档。
+
+### 局限性或备注
+
+- V3.3 是工程接口升级，不是电磁求解精度升级。
+- 没有接入外部密钥型 LLM、RAG、多 Agent 或付费仿真器。
+- 二维标量 BPM、Gaussian 模式和 overlap-based power 仍不是严格全矢量 S 参数。
+
 ## V3.2_port_mode_overlap — 端口模式重叠积分版
 
 ### 版本定位

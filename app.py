@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from core.design_spec import DESIGN_SPEC_VERSION, DesignSpec, ParameterSource
 from core.material_database import get_platform_materials
 from core.mode_solver import run_mode_solver_analysis
 from core.model_comparison import run_model_comparison_analysis
@@ -20,12 +21,14 @@ from core.run_manager import (
     write_run_log,
     write_success_log,
 )
-from core.spec_parser import parse_design_text, save_design_spec
+from core.run_status import RunStatusTracker, StageCode
+from core.spec_parser import parse_design_request, save_design_spec
 from core.v23_report_appendix import insert_v23_wavelength_section
 from core.v2_report_appendix import insert_v2_mode_section
 from core.v30_report_appendix import append_v30_propagation_section
 from core.v31_report_appendix import append_v31_calibration_section
 from core.v32_report_appendix import append_v32_mode_overlap_section
+from core.v33_report_appendix import append_v33_engineering_section
 from core.v2_web_utils import display_v2_result_panel, find_latest_run_dir
 from core.ui_theme import (
     apply_ui_theme,
@@ -39,9 +42,9 @@ from core.wavelength_sweep import run_wavelength_sweep
 from layout.gds_generator import generate_gds, generate_layout_preview
 
 
-DEMO_VERSION = "V3.2"
+DEMO_VERSION = "V3.3"
 DEMO_DESCRIPTION = (
-    "端口模式重叠积分版：展示 Gaussian 端口模式投影与窗口积分对比"
+    "DesignSpec 与本地 MCP 基础版：保留 V3.2 物理流程并增加结构化工程接口"
 )
 
 
@@ -51,7 +54,7 @@ def save_json(data: dict, path: Path) -> None:
 
 
 st.set_page_config(
-    page_title="AI PIC Design Studio · V3.2",
+    page_title="AI PIC Design Studio · V3.3",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -73,8 +76,21 @@ with st.sidebar:
             help="输入平台、波长、器件类型和目标分光比。",
         )
         if st.button("解析并填充参数", width="stretch"):
-            parsed_spec = parse_design_text(user_text)
+            parse_result = parse_design_request(user_text)
+            if parse_result.status.value == "needs_clarification":
+                for question in parse_result.clarification_questions:
+                    st.warning(question)
+            elif parse_result.status.value == "invalid":
+                for error in parse_result.errors:
+                    st.error(error)
+            if parse_result.design_spec is None:
+                st.stop()
+            parsed_design_spec = parse_result.design_spec
+            parsed_spec = parsed_design_spec.to_legacy_dict()
             st.session_state["parsed_spec"] = parsed_spec
+            st.session_state["parsed_design_spec"] = parsed_design_spec.model_dump(
+                mode="json"
+            )
             st.session_state["wavelength_um"] = parsed_spec["wavelength_um"]
             st.session_state["neff"] = parsed_spec["neff"]
             st.session_state["use_estimated_neff"] = parsed_spec[
@@ -108,7 +124,12 @@ with st.sidebar:
             st.success("解析完成，参数已同步。")
         if "parsed_spec" in st.session_state:
             with st.popover("查看结构化规格", width="stretch"):
-                st.json(st.session_state["parsed_spec"])
+                st.json(
+                    st.session_state.get(
+                        "parsed_design_spec",
+                        st.session_state["parsed_spec"],
+                    )
+                )
 
     with st.expander("02 · 光学平台与波导", expanded=True):
         platform = st.selectbox("光子平台", options=["SOI"], index=0)
@@ -212,13 +233,21 @@ if run_button:
     st.session_state.pop("last_run_dir", None)
     run_dir = create_run_directory(Path("outputs"))
     init_run_log(run_dir, DEMO_VERSION, DEMO_DESCRIPTION)
-    write_run_log(run_dir, "Streamlit V3.2 design run started.")
+    write_run_log(run_dir, "Streamlit V3.3 design run started.")
+    status_tracker = RunStatusTracker(
+        run_dir,
+        demo_version=DEMO_VERSION,
+        design_spec_schema_version=DESIGN_SPEC_VERSION,
+    )
+    active_code = StageCode.INPUT_EXTRACTION
+    active_stage = "input_extraction"
 
     try:
         spec = {
             "component": "1x2_mmi_splitter",
             "platform": platform,
             "wavelength_um": wavelength_um,
+            "polarization": "TE",
             "use_estimated_neff": use_estimated_neff,
             "neff": neff,
             "waveguide_width_um": waveguide_width_um,
@@ -230,29 +259,74 @@ if run_button:
             "mmi_width_scan_range_um": [width_min_um, width_max_um],
             "num_width_scan_points": int(num_width_scan_points),
         }
-        design_spec_path = save_design_spec(spec=spec, output_dir=run_dir)
+        unified_design_spec = DesignSpec.from_legacy(
+            spec,
+            source=ParameterSource.USER,
+        )
+        design_spec_path = save_design_spec(
+            spec=unified_design_spec,
+            output_dir=run_dir,
+        )
+        status_tracker.record(
+            StageCode.INPUT_EXTRACTION,
+            stage="input_extraction",
+            state="success",
+            message="Streamlit form normalized into DesignSpec 1.0.",
+            recoverable=False,
+            suggested_action="Continue with schema validation.",
+        )
         write_run_log(run_dir, f"Saved design_spec.json: {design_spec_path}")
 
+        active_code = StageCode.SCHEMA_VALIDATION
+        active_stage = "schema_validation"
         validation_result = validate_design_spec(spec)
         validation_text = validation_result_to_text(validation_result)
         write_run_log(run_dir, "Validation result:")
         write_run_log(run_dir, validation_text)
 
         if not validation_result.is_valid:
+            status_tracker.record(
+                StageCode.SCHEMA_VALIDATION,
+                stage="schema_validation",
+                state="failed",
+                message="; ".join(validation_result.errors),
+                recoverable=True,
+                suggested_action="请修正侧栏参数后重新运行。",
+            )
             st.error("参数校验未通过，请修改输入参数后重新运行。")
             st.text(validation_text)
             write_run_log(run_dir, "Streamlit run stopped: validation failed.")
             write_run_log(run_dir, "Status: FAILED")
             st.stop()
 
+        status_tracker.record(
+            StageCode.SCHEMA_VALIDATION,
+            stage="schema_validation",
+            state="success",
+            message="DesignSpec and physical validation passed.",
+            recoverable=False,
+            suggested_action="Continue with the existing V3.2 physical flow.",
+        )
         st.success("参数校验通过。")
         if validation_result.warnings:
             with st.expander("参数警告信息", expanded=True):
                 for warning in validation_result.warnings:
                     st.warning(warning)
 
-        with st.spinner("正在运行 V3.2 模式、优化、BPM 传播与端口重叠分析..."):
+        with st.spinner("正在运行 V3.3 结构化流程与 V3.2 物理基线..."):
+            active_code = StageCode.PHYSICAL_PARAMETERS
+            active_stage = "physical_parameters"
             material_params = get_platform_materials(spec["platform"])
+            status_tracker.record(
+                StageCode.PHYSICAL_PARAMETERS,
+                stage="physical_parameters",
+                state="success",
+                message="SOI material and geometry parameters prepared.",
+                recoverable=False,
+                suggested_action="Run the scalar finite-difference mode solver.",
+            )
+            active_code = StageCode.MODE_SOLVER
+            active_stage = "mode_solver"
             mode_result = run_mode_solver_analysis(
                 core_index=material_params["core_index"],
                 cladding_index=material_params["cladding_index"],
@@ -277,10 +351,22 @@ if run_button:
                 run_dir,
                 f"Mode result path: {mode_result['mode_result_path']}",
             )
+            status_tracker.record(
+                StageCode.MODE_SOLVER,
+                stage="mode_solver",
+                state="success",
+                message="Existing V3.2 scalar finite-difference mode stage completed.",
+                recoverable=False,
+                suggested_action="Continue with MMI optimization.",
+            )
 
+            active_code = StageCode.OPTIMIZATION
+            active_stage = "optimization"
             result = optimize_length(spec=spec, output_dir=run_dir)
             spec["use_estimated_neff"] = original_use_estimated_neff
-            save_design_spec(spec=spec, output_dir=run_dir)
+            unified_design_spec.simulation.neff.value = float(estimated_neff)
+            unified_design_spec.simulation.neff.source = ParameterSource.FORMULA
+            save_design_spec(spec=unified_design_spec, output_dir=run_dir)
 
             physical_params_path = run_dir / "physical_params.json"
             physical_params = json.loads(
@@ -343,7 +429,17 @@ if run_button:
                 run_dir,
                 "V2.5 FD-neff wavelength sweep finished in Streamlit.",
             )
+            status_tracker.record(
+                StageCode.OPTIMIZATION,
+                stage="optimization",
+                state="success",
+                message="Existing optimization and wavelength sweep completed.",
+                recoverable=False,
+                suggested_action="Continue with scalar BPM propagation.",
+            )
 
+            active_code = StageCode.PROPAGATION
+            active_stage = "propagation"
             propagation_result = None
             try:
                 propagation_result = run_propagation_analysis(
@@ -383,6 +479,14 @@ if run_button:
                     "output_window_sensitivity.png generated: "
                     f"{propagation_result['output_window_sensitivity_plot_path']}",
                 )
+                status_tracker.record(
+                    StageCode.PROPAGATION,
+                    stage="propagation",
+                    state="success",
+                    message="Existing V3.2 scalar BPM stage completed.",
+                    recoverable=False,
+                    suggested_action="Continue with overlap analysis.",
+                )
             except Exception as propagation_error:
                 write_run_log(
                     run_dir,
@@ -392,6 +496,14 @@ if run_button:
                 write_run_log(run_dir, traceback.format_exc())
                 st.warning(
                     "V3.0 传播仿真未完成；V2.6 模式、优化、波长扫描和版图流程将继续。"
+                )
+                status_tracker.record(
+                    StageCode.PROPAGATION,
+                    stage="propagation",
+                    state="failed",
+                    message=f"{type(propagation_error).__name__}: {propagation_error}",
+                    recoverable=True,
+                    suggested_action="查看 run_log.txt；非 BPM 输出仍会继续生成。",
                 )
 
             model_comparison_result = None
@@ -427,6 +539,8 @@ if run_button:
                         "V3.1 模型对比未完成；V3.0 传播和 V2.6 基线结果仍可继续生成。"
                     )
 
+            active_code = StageCode.MODE_OVERLAP
+            active_stage = "mode_overlap"
             mode_overlap_result = None
             if propagation_result is not None:
                 try:
@@ -456,6 +570,14 @@ if run_button:
                         "field_output_profile_with_modes.png generated: "
                         f"{mode_overlap_result['field_output_profile_with_modes_path']}",
                     )
+                    status_tracker.record(
+                        StageCode.MODE_OVERLAP,
+                        stage="mode_overlap",
+                        state="success",
+                        message="Existing V3.2 Gaussian overlap stage completed.",
+                        recoverable=False,
+                        suggested_action="Continue with layout generation.",
+                    )
                 except Exception as overlap_error:
                     write_run_log(
                         run_dir,
@@ -466,7 +588,26 @@ if run_button:
                     st.warning(
                         "V3.2 端口模式重叠分析未完成；V3.0/V3.1 结果仍可继续生成。"
                     )
+                    status_tracker.record(
+                        StageCode.MODE_OVERLAP,
+                        stage="mode_overlap",
+                        state="failed",
+                        message=f"{type(overlap_error).__name__}: {overlap_error}",
+                        recoverable=True,
+                        suggested_action="检查 overlap 输入；前序输出仍可使用。",
+                    )
+            else:
+                status_tracker.record(
+                    StageCode.MODE_OVERLAP,
+                    stage="mode_overlap",
+                    state="failed",
+                    message="Skipped because scalar BPM propagation did not complete.",
+                    recoverable=True,
+                    suggested_action="先解决 BPM 阶段，再请求 overlap 结果。",
+                )
 
+            active_code = StageCode.LAYOUT
+            active_stage = "layout"
             gds_path = generate_gds(spec=spec, result=result, output_dir=run_dir)
             layout_preview_path = generate_layout_preview(
                 spec=spec,
@@ -478,7 +619,17 @@ if run_button:
                 run_dir,
                 f"Layout preview generated: {layout_preview_path}",
             )
+            status_tracker.record(
+                StageCode.LAYOUT,
+                stage="layout",
+                state="success",
+                message="GDS and layout preview generated.",
+                recoverable=False,
+                suggested_action="Generate report and package.",
+            )
 
+            active_code = StageCode.REPORT
+            active_stage = "report"
             report_path = generate_report(
                 spec=spec,
                 result=result,
@@ -548,6 +699,12 @@ if run_button:
                     )
                     write_run_log(run_dir, traceback.format_exc())
 
+            append_v33_engineering_section(report_path)
+            write_run_log(
+                run_dir,
+                "V3.3 DesignSpec/MCP report section appended in Streamlit.",
+            )
+
             zip_path = create_result_package(output_dir=run_dir)
             append_v15_report_appendix(
                 report_path=report_path,
@@ -556,12 +713,23 @@ if run_button:
                 version=DEMO_VERSION,
                 description=DEMO_DESCRIPTION,
             )
-            write_run_log(run_dir, "V3.2 engineering appendix added.")
+            write_run_log(run_dir, "V3.3 engineering appendix added.")
+            status_tracker.record(
+                StageCode.REPORT,
+                stage="report",
+                state="success",
+                message="Report and engineering appendix generated.",
+                recoverable=False,
+                suggested_action="Finalize run status and package.",
+            )
+            status_tracker.success(
+                "V3.3 Streamlit flow completed without changing V3.2 physics."
+            )
             write_success_log(run_dir)
             zip_path = create_result_package(output_dir=run_dir)
             write_run_log(run_dir, f"Final result package generated: {zip_path}")
 
-        st.success("V3.2 设计流程运行完成。")
+        st.success("V3.3 设计流程运行完成。")
         st.session_state["last_run_dir"] = str(run_dir)
 
     except Exception as error:
@@ -570,6 +738,14 @@ if run_button:
         write_error_log(run_dir, error)
         write_run_log(run_dir, "Traceback:")
         write_run_log(run_dir, traceback.format_exc())
+        status_tracker.record(
+            active_code,
+            stage=active_stage,
+            state="failed",
+            message=f"{type(error).__name__}: {error}",
+            recoverable=False,
+            suggested_action="查看 run_log.txt 和完整错误追踪。",
+        )
 
 
 st.divider()
@@ -603,7 +779,8 @@ st.markdown(
     """
 #### 关于当前模型
 
-V3.2 保留 V3.0/V3.1 的传播、窗口敏感性和模型对比，并新增简化 Gaussian 端口模式重叠积分。
+V3.3 在 V3.2 物理流程外增加 DesignSpec、澄清状态、阶段错误码和本地 MCP 工具层。
+V3.2 的传播、窗口敏感性、模型对比和简化 Gaussian 端口模式重叠积分保持不变。
 Overlap-based power 比窗口积分更具模式意识，但仍不是严格全矢量本征模式 S 参数。
 """
 )

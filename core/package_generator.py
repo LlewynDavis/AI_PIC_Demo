@@ -12,6 +12,8 @@ def create_result_package(output_dir: Path):
 
     files_to_package = [
         "design_spec.json",
+        "run_manifest.json",
+        "status.json",
         "physical_params.json",
         "mode_result.json",
         "index_profile.png",
