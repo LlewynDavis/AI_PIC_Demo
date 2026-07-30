@@ -29,7 +29,7 @@
 - status：`APPROVED`
 - decision：所有涉及代码的交接必须携带 `base_commit`。Codex 发现当前 commit 不一致时停止写入并报告漂移；Drive 更新使用最新文档修订并在写后读回。
 
-## DEC-006：项目级自动对齐
+## DEC-007：项目级自动对齐
 
 - status：`APPROVED`
 - decision：自动协调器覆盖整个 `AI_PIC_Demo`，定期发现 ChatGPT 与 Codex 项目中的新增或更新对话，优先复用现有专用对话，并通过私人 Drive 路由日志完成去重、上下文传递、状态核对和验证回写。
