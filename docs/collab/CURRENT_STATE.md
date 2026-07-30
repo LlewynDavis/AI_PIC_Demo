@@ -4,7 +4,7 @@
 
 - repository：`LlewynDavis/AI_PIC_Demo`
 - canonical branch：`main`
-- stable version：`V3.2_port_mode_overlap`
+- stable version：`V3.3_designspec_mcp_foundation`
 - repository visibility：`PUBLIC`
 - collaboration protocol revision：`2`
 
@@ -39,10 +39,10 @@
 
 公开稳定状态写入本文件；实时 `base_commit`、任务状态、研究过程和往返验证结果写入私人 Drive。
 
-## 当前开发候选
+## 当前稳定发布
 
-- development branch：`codex/v3.3-designspec-mcp-foundation`
-- candidate version：`V3.3_designspec_mcp_foundation`
-- implementation status：实施端验证通过，等待 ChatGPT/用户最终评审后合并
+- stable branch：`main`
+- stable version：`V3.3_designspec_mcp_foundation`
+- release status：ChatGPT 与用户最终评审通过，`PIC-HANDOFF-001` 已关闭并合并到 `main`
 - physical baseline：保持 V3.2 模式求解、MMI 优化、二维标量 BPM 和 Gaussian overlap 算法不变
 - verification evidence：`docs/verification/v3.3.md`
